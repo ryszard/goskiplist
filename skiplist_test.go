@@ -50,6 +50,17 @@ func TestSet(t *testing.T) {
 
 }
 
+func TestLen(t *testing.T) {
+	s := NewIntKey()
+	for i := 0; i < 10; i++ {
+		s.Set(i, i)
+	}
+	if length := s.Len(); length != 10 {
+		t.Errorf("Length should be equal to 10, not %v.", length)
+		s.printRepr()
+	}
+}
+
 func TestSomeMore(t *testing.T) {
 	s := NewIntKey()
 	insertions := [...]int{4, 1, 2, 9, 10, 7, 3}

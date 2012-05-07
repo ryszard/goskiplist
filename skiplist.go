@@ -11,7 +11,8 @@ type SkipList struct {
 }
 
 func (s SkipList) Len() int {
-	return s.header.Len()
+	// header and and end do not count as elements of the list.
+	return s.header.Len() - 1
 }
 
 func (n *node) next() *node {
@@ -20,7 +21,7 @@ func (n *node) next() *node {
 
 func (n node) Len() int {
 	if n.isEnd() {
-		return -1
+		return 0
 	}
 	return 1 + n.forward[0].Len()
 }
@@ -86,7 +87,8 @@ func (s *SkipList) Get(key interface{}) interface{} {
 // getPath populates update with nodes that constitute the path to the
 // node that may contain key. The candidate node will be returned. If
 // update is nil, it will be left alone (the candidate node will still
-// be returned).
+// be returned). If update is not nil, but it doesn't have enough
+// slots for all the nodes in the path, getPath will panic.
 func (s *SkipList) getPath(update []*node, key interface{}) *node {
 	current := s.header
 	for i := s.level(); i >= 0; i-- {
@@ -102,9 +104,8 @@ func (s *SkipList) getPath(update []*node, key interface{}) *node {
 
 func (s *SkipList) Set(key, value interface{}) {
 
-	// current is the last node whose key is less than key, update
-	// is the node path to get from the header to current.
-	update := make([]*node, maxLevel, maxLevel)
+	// s.level starts from 0, so we need to allocate one 
+	update := make([]*node, s.level() + 1, maxLevel)
 	candidate := s.getPath(update, key)
 
 	if candidate.key == key {
@@ -119,7 +120,7 @@ func (s *SkipList) Set(key, value interface{}) {
 		// update. Header should be there. Also add higher
 		// level links to the header.
 		for i := currentLevel + 1; i <= newLevel; i++ {
-			update[i] = s.header
+			update = append(update, s.header)
 			s.header.forward = append(s.header.forward, s.end)
 		}
 	}
