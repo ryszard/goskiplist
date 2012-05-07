@@ -5,22 +5,21 @@ import "math/rand"
 const p = 0.5
 const maxLevel = 32 // maybe this should be configurable
 
-type SkipList struct {
-	lessThan    func(l, r interface{}) bool
-	header, end *node
-}
-
-func (s SkipList) Len() int {
-	// header and and end do not count as elements of the list.
-	return s.header.Len() - 1
+type node struct {
+	forward    []*node
+	key, value interface{}
 }
 
 func (n *node) Next() *node {
 	return n.forward[0]
 }
 
-func (s SkipList) Iter() *node {
-	return s.header.Next()
+func (n node) isEnd() bool {
+	return cap(n.forward) == 0
+}
+
+func (n node) HasNext() bool {
+	return !n.isEnd()
 }
 
 func (n *node) Key() interface{} {
@@ -42,6 +41,21 @@ func (n node) level() int {
 	return len(n.forward) - 1
 }
 
+
+type SkipList struct {
+	lessThan    func(l, r interface{}) bool
+	header, end *node
+}
+
+func (s SkipList) Len() int {
+	// header shouldn't count as an element of the list.
+	return s.header.Len() - 1
+}
+
+func (s SkipList) Iter() *node {
+	return s.header.Next()
+}
+
 func (s SkipList) level() int {
 	return s.header.level()
 }
@@ -52,35 +66,6 @@ func (s SkipList) LessThan(l, r interface{}) bool {
 		return false
 	}
 	return s.lessThan(l, r)
-}
-
-type node struct {
-	forward    []*node
-	key, value interface{}
-}
-
-func (n node) isEnd() bool {
-	return cap(n.forward) == 0
-}
-
-func (n node) HasNext() bool {
-	return !n.isEnd()
-}
-
-func New(f func(l, r interface{}) bool) *SkipList {
-	end := &node{make([]*node, 0, 0), nil, nil}
-	header := &node{[]*node{end}, nil, nil}
-	return &SkipList{lessThan: f, header: header, end: end}
-}
-
-func NewIntKey() *SkipList {
-	return New(func(l, r interface{}) bool {
-		return l.(int) < r.(int)
-	})
-}
-
-func makeNewNode(level int, key, value interface{}) *node {
-	return &node{make([]*node, level+1, maxLevel), key, value}
 }
 
 // Returns a new random level in 1..maxLevel.
@@ -141,7 +126,7 @@ func (s *SkipList) Set(key, value interface{}) {
 		}
 	}
 
-	newNode := makeNewNode(newLevel, key, value)
+	newNode := &node{make([]*node, newLevel+1, maxLevel), key, value}
 
 	for i := 0; i <= newLevel; i++ {
 		newNode.forward[i] = update[i].forward[i]
@@ -167,6 +152,21 @@ func (s *SkipList) Delete(key interface{}) (interface{}, bool) {
 
 	return candidate.Value(), true
 }
+
+
+func New(f func(l, r interface{}) bool) *SkipList {
+	end := &node{make([]*node, 0, 0), nil, nil}
+	header := &node{[]*node{end}, nil, nil}
+	return &SkipList{lessThan: f, header: header, end: end}
+}
+
+func NewIntKey() *SkipList {
+	return New(func(l, r interface{}) bool {
+		return l.(int) < r.(int)
+	})
+}
+
+
 
 // TODO(szopa): deletion, test that there are no duplicates, test that
 // the values are in order, get a unique source of randomness (that
