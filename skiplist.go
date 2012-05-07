@@ -10,20 +10,19 @@ type SkipList struct {
 	header, end *node
 }
 
-func (s SkipList) Length() int {
-	return s.header.Length()
+func (s SkipList) Len() int {
+	return s.header.Len()
 }
-
 
 func (n *node) next() *node {
 	return n.forward[0]
 }
 
-func (n node) Length() int {
+func (n node) Len() int {
 	if n.isEnd() {
 		return -1
 	}
-	return 1 + n.forward[0].Length()
+	return 1 + n.forward[0].Len()
 }
 
 func (n node) level() int {
@@ -64,7 +63,7 @@ func NewIntKey() *SkipList {
 }
 
 func makeNewNode(level int, key, value interface{}) *node {
-	return &node{make([]*node, level + 1, maxLevel), key, value}
+	return &node{make([]*node, level+1, maxLevel), key, value}
 }
 
 // Returns a new random level in 1..maxLevel.
@@ -75,40 +74,47 @@ func (s SkipList) randomLevel() (n int) {
 }
 
 func (s *SkipList) Get(key interface{}) interface{} {
-	current := s.header
-	for i := s.level(); i >= 0; i-- {
-		for s.LessThan(current.forward[i].key, key) {
-			current = current.forward[i]
-		}
-	}
-	if candidate := current.forward[0]; !candidate.isEnd() && candidate.key == key {
+	candidate := s.getPath(nil, key)
+
+	if !candidate.isEnd() && candidate.key == key {
 		return candidate.value
 	}
 
 	return nil
 }
 
-func (s *SkipList) Set(key, value interface{}) {
-	update := make([]*node, maxLevel, maxLevel)
+// getPath populates update with nodes that constitute the path to the
+// node that may contain key. The candidate node will be returned. If
+// update is nil, it will be left alone (the candidate node will still
+// be returned).
+func (s *SkipList) getPath(update []*node, key interface{}) *node {
 	current := s.header
 	for i := s.level(); i >= 0; i-- {
 		for s.LessThan(current.forward[i].key, key) {
 			current = current.forward[i]
 		}
-		update[i] = current
+		if update != nil {
+			update[i] = current
+		}
 	}
+	return current.forward[0]
+}
+
+func (s *SkipList) Set(key, value interface{}) {
 
 	// current is the last node whose key is less than key, update
 	// is the node path to get from the header to current.
+	update := make([]*node, maxLevel, maxLevel)
+	candidate := s.getPath(update, key)
 
-	if candidate := current.forward[0]; candidate.key == key {
+	if candidate.key == key {
 		candidate.value = value
 		return
 	}
 
 	newLevel := s.randomLevel()
 
-	if currentLevel := s.level() ; newLevel > currentLevel {
+	if currentLevel := s.level(); newLevel > currentLevel {
 		// there are no pointers for the higher levels in
 		// update. Header should be there. Also add higher
 		// level links to the header.
@@ -119,9 +125,13 @@ func (s *SkipList) Set(key, value interface{}) {
 	}
 
 	newNode := makeNewNode(newLevel, key, value)
-	
+
 	for i := 0; i <= newLevel; i++ {
 		newNode.forward[i] = update[i].forward[i]
 		update[i].forward[i] = newNode
 	}
 }
+
+// TODO(szopa): deletion, test that there are no duplicates, test that
+// the values are in order, get a unique source of randomness (that
+// can be seeded separately).

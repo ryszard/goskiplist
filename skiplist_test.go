@@ -2,9 +2,9 @@ package skiplist
 
 import "testing"
 import "fmt"
+import "math/rand"
 
 func (s SkipList) printRepr() {
-
 
 	for node := s.header; !node.isEnd(); node = node.forward[0] {
 		fmt.Printf("%v: %v (level %d)\n", node.key, node.value, node.level())
@@ -34,14 +34,14 @@ func (s SkipList) check(t *testing.T, key, wanted int) bool {
 
 func TestSet(t *testing.T) {
 	s := NewIntKey()
-	if l := s.Length(); l != 0 {
-		t.Errorf("Length is not 0, it is %v", l)
+	if l := s.Len(); l != 0 {
+		t.Errorf("Len is not 0, it is %v", l)
 	}
 
 	s.Set(0, 0)
 	s.Set(1, 1)
-	if l := s.Length(); l != 2 {
-		t.Errorf("Length is not 2, it is %v", l)
+	if l := s.Len(); l != 2 {
+		t.Errorf("Len is not 2, it is %v", l)
 	}
 	if s.check(t, 0, 0) {
 		t.Errorf("%v", s.header.next())
@@ -59,6 +59,14 @@ func TestSomeMore(t *testing.T) {
 	for _, i := range insertions {
 		s.check(t, i, i)
 	}
-	s.printRepr()
+	//s.printRepr()
 
+}
+
+func BenchmarkInsertion(b *testing.B) {
+	s := NewIntKey()
+	for i := 0; i < b.N; i++ {
+		insert := rand.Int()
+		s.Set(insert, insert)
+	}
 }
