@@ -15,15 +15,27 @@ func (s SkipList) Len() int {
 	return s.header.Len() - 1
 }
 
-func (n *node) next() *node {
+func (n *node) Next() *node {
 	return n.forward[0]
+}
+
+func (s SkipList) Iter() *node {
+	return s.header.Next()
+}
+
+func (n *node) Key() interface{} {
+	return n.key
+}
+
+func (n *node) Value() interface{} {
+	return n.value
 }
 
 func (n node) Len() int {
 	if n.isEnd() {
 		return 0
 	}
-	return 1 + n.next().Len()
+	return 1 + n.Next().Len()
 }
 
 func (n node) level() int {
@@ -49,6 +61,10 @@ type node struct {
 
 func (n node) isEnd() bool {
 	return cap(n.forward) == 0
+}
+
+func (n node) HasNext() bool {
+	return !n.isEnd()
 }
 
 func New(f func(l, r interface{}) bool) *SkipList {
@@ -99,7 +115,7 @@ func (s *SkipList) getPath(update []*node, key interface{}) *node {
 			update[i] = current
 		}
 	}
-	return current.next()
+	return current.Next()
 }
 
 func (s *SkipList) Set(key, value interface{}) {
