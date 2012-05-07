@@ -55,11 +55,26 @@ func TestIsEnd(t *testing.T) {
 }
 
 func (s SkipList) check(t *testing.T, key, wanted int) bool {
-	if got := s.Get(key); got != wanted {
+	if got, _ := s.Get(key); got != wanted {
 		t.Errorf("Wanted %v, got %v.", wanted, got)
 		return true
 	}
 	return false
+}
+
+func TestGet(t *testing.T) {
+	s := NewIntKey()
+	s.Set(0, 0)
+	
+	if value, present := s.Get(0); !(value == 0 && present) {
+		t.Errorf("%v, %v instead of %v, %v", value, present, 0, true)
+	}
+	
+	if value, present := s.Get(100); value != nil || present {
+		t.Errorf("%v, %v instead of %v, %v", value, present, nil, false)
+	}
+
+
 }
 
 func TestSet(t *testing.T) {
@@ -90,7 +105,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	for i := 0; i < 10; i+=2 {
-		if s.Get(i) != nil {
+		if _, present := s.Get(i); present {
 			t.Errorf("%d should not be present in s", i)
 		}
 	}

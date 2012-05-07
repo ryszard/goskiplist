@@ -71,14 +71,14 @@ func (s SkipList) randomLevel() (n int) {
 	return
 }
 
-func (s *SkipList) Get(key interface{}) interface{} {
+func (s *SkipList) Get(key interface{}) (value interface{}, present bool) {
 	candidate := s.getPath(nil, key)
 
 	if !candidate.IsEnd() && candidate.key == key {
-		return candidate.value
+		return candidate.value, true
 	}
 
-	return nil
+	return nil, false
 }
 
 // getPath populates update with nodes that constitute the path to the
