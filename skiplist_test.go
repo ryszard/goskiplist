@@ -26,12 +26,12 @@ func TestInitialization(t *testing.T) {
 
 func TestIsEnd(t *testing.T) {
 	s := NewIntKey()
-	if !s.end.isEnd() {
-	 	t.Errorf("isEnd() is not true for s.end.")
+	if s.end.HasNext() {
+	 	t.Errorf("HasNext() is true for s.end.")
 	}
 
-	if s.header.isEnd() {
-		t.Errorf("isEnd() is true for s.header.")
+	if !s.header.HasNext() {
+		t.Errorf("HasNext() is false for s.header.")
 	}
 
 	s.Set(0, 0)
@@ -40,8 +40,8 @@ func TestIsEnd(t *testing.T) {
 		t.Fatalf("We got the wrong node: %v.", node)
 	}
 
-	if node.isEnd() {
-		t.Errorf("isEnd() should not be true for %v.", node)
+	if !node.HasNext() {
+		t.Errorf("HasNext() should be true for %v.", node)
 	}
 
 	if node == s.end {
@@ -144,16 +144,39 @@ func TestSomeMore(t *testing.T) {
 
 }
 
-func LookupBenchmark(b *testing.B, n int) {
-	b.StopTimer()
-	s := NewIntKey()
+func makeRandomList(n int) (s *SkipList) {
+	s = NewIntKey()
 	for i := 0; i < n; i++ {
 		insert := rand.Int()
 		s.Set(insert, insert)
 	}
+	return
+}
+
+
+func LookupBenchmark(b *testing.B, n int) {
+	b.StopTimer()
+	s := makeRandomList(n)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		s.Get(rand.Int())
+	}
+}
+
+
+// Make sure that all the keys are unique and are returned in order.
+func TestSanity(t *testing.T) {
+	s := NewIntKey()
+	for i := 0; i < 10000; i++ {
+		insert := rand.Int()
+		s.Set(insert, insert)
+	}
+	var last int = 0
+	for i := s.Iter(); i.HasNext(); i = i.Next() {
+		if last != 0 && i.Key().(int) <= last {
+			t.Errorf("Not in order!")
+		}
+		last = i.Key().(int)
 	}
 }
 
