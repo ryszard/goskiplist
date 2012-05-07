@@ -23,7 +23,7 @@ func (n node) Len() int {
 	if n.isEnd() {
 		return 0
 	}
-	return 1 + n.forward[0].Len()
+	return 1 + n.next().Len()
 }
 
 func (n node) level() int {
@@ -99,13 +99,13 @@ func (s *SkipList) getPath(update []*node, key interface{}) *node {
 			update[i] = current
 		}
 	}
-	return current.forward[0]
+	return current.next()
 }
 
 func (s *SkipList) Set(key, value interface{}) {
 
 	// s.level starts from 0, so we need to allocate one 
-	update := make([]*node, s.level() + 1, maxLevel)
+	update := make([]*node, s.level()+1, maxLevel)
 	candidate := s.getPath(update, key)
 
 	if candidate.key == key {
