@@ -6,7 +6,7 @@ import "math/rand"
 
 func (s SkipList) printRepr() {
 
-	for node := s.header; !node.isEnd(); node = node.forward[0] {
+	for node := s.header; !node.IsEnd(); node = node.forward[0] {
 		fmt.Printf("%v: %v (level %d)\n", node.key, node.value, node.level())
 		for i, link := range node.forward {
 			fmt.Printf("\t%d: -> %v\n", i, link.key)
@@ -26,12 +26,12 @@ func TestInitialization(t *testing.T) {
 
 func TestIsEnd(t *testing.T) {
 	s := NewIntKey()
-	if s.end.HasNext() {
-	 	t.Errorf("HasNext() is true for s.end.")
+	if !s.end.IsEnd() {
+	 	t.Errorf("IsEnd() is flase for s.end.")
 	}
 
-	if !s.header.HasNext() {
-		t.Errorf("HasNext() is false for s.header.")
+	if s.header.IsEnd() {
+		t.Errorf("IsEnd() is true for s.header.")
 	}
 
 	s.Set(0, 0)
@@ -40,8 +40,8 @@ func TestIsEnd(t *testing.T) {
 		t.Fatalf("We got the wrong node: %v.", node)
 	}
 
-	if !node.HasNext() {
-		t.Errorf("HasNext() should be true for %v.", node)
+	if node.IsEnd() {
+		t.Errorf("IsEnd() should be false for %v.", node)
 	}
 
 	if node == s.end {
@@ -119,7 +119,7 @@ func TestIterator(t *testing.T) {
 
 	seen := 0
 	var lastKey int
-	for i := s.Iter(); i.HasNext(); i = i.Next() {
+	for i := s.Iter(); !i.IsEnd(); i = i.Next() {
 		seen++
 		lastKey = i.Key().(int)
 		if i.Key() != i.Value() {
@@ -172,7 +172,7 @@ func TestSanity(t *testing.T) {
 		s.Set(insert, insert)
 	}
 	var last int = 0
-	for i := s.Iter(); i.HasNext(); i = i.Next() {
+	for i := s.Iter(); !i.IsEnd(); i = i.Next() {
 		if last != 0 && i.Key().(int) <= last {
 			t.Errorf("Not in order!")
 		}

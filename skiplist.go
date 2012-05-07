@@ -14,12 +14,8 @@ func (n *node) Next() *node {
 	return n.forward[0]
 }
 
-func (n node) isEnd() bool {
+func (n node) IsEnd() bool {
 	return cap(n.forward) == 0
-}
-
-func (n node) HasNext() bool {
-	return !n.isEnd()
 }
 
 func (n *node) Key() interface{} {
@@ -31,7 +27,7 @@ func (n *node) Value() interface{} {
 }
 
 func (n node) Len() int {
-	if n.isEnd() {
+	if n.IsEnd() {
 		return 0
 	}
 	return 1 + n.Next().Len()
@@ -78,7 +74,7 @@ func (s SkipList) randomLevel() (n int) {
 func (s *SkipList) Get(key interface{}) interface{} {
 	candidate := s.getPath(nil, key)
 
-	if !candidate.isEnd() && candidate.key == key {
+	if !candidate.IsEnd() && candidate.key == key {
 		return candidate.value
 	}
 
