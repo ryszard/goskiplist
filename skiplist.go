@@ -149,6 +149,25 @@ func (s *SkipList) Set(key, value interface{}) {
 	}
 }
 
+func (s *SkipList) Delete(key interface{}) (interface{}, bool) {
+	update := make([]*node, s.level()+1, maxLevel)
+	candidate := s.getPath(update, key)
+
+	if candidate.key != key {
+		return nil, false
+	}
+
+	for i := 0; i <= s.level() && update[i].forward[i] == candidate; i++ {
+		update[i].forward[i] = candidate.forward[i]
+	}
+
+	for s.level() > 0 && s.header.forward[s.level()] == s.end {
+		s.header.forward = s.header.forward[:s.level() - 1]
+	}
+
+	return candidate.Value(), true
+}
+
 // TODO(szopa): deletion, test that there are no duplicates, test that
 // the values are in order, get a unique source of randomness (that
 // can be seeded separately).
