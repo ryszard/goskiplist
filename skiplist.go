@@ -34,13 +34,6 @@ func (n *node) Value() interface{} {
 	return n.value
 }
 
-func (n node) Len() int {
-	if n.HasNext() {
-		return 1 + n.Next().Len()
-	}
-	return 1
-}
-
 type SkipList struct {
 	lessThan func(l, r interface{}) bool
 	header   *node
