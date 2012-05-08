@@ -6,7 +6,7 @@ import "math/rand"
 
 func (s SkipList) printRepr() {
 
-	for node := s.Iter(); node != nil; node = node.Next() {
+	for node := s.Front(); node != nil; node = node.Next() {
 		fmt.Printf("%v: %v (level %d)\n", node.key, node.value, node.level())
 		for i, link := range node.forward {
 			if link != nil {
@@ -129,7 +129,7 @@ func TestLen(t *testing.T) {
 	}
 }
 
-func TestIterator(t *testing.T) {
+func TestIteration(t *testing.T) {
 	s := NewIntMap()
 	for i := 0; i < 20; i++ {
 		s.Set(i, i)
@@ -137,7 +137,7 @@ func TestIterator(t *testing.T) {
 
 	seen := 0
 	var lastKey int
-	for i := s.Iter(); i != nil; i = i.Next() {
+	for i := s.Front(); i != nil; i = i.Next() {
 		seen++
 		lastKey = i.Key().(int)
 		if i.Key() != i.Value() {
@@ -188,7 +188,7 @@ func TestSanity(t *testing.T) {
 		s.Set(insert, insert)
 	}
 	var last int = 0
-	for i := s.Iter(); i != nil; i = i.Next() {
+	for i := s.Front(); i != nil; i = i.Next() {
 		if last != 0 && i.Key().(int) <= last {
 			t.Errorf("Not in order!")
 		}

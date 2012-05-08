@@ -47,7 +47,7 @@ func (s SkipList) Len() int {
 	return s.header.Len() - 1
 }
 
-func (s SkipList) Iter() *node {
+func (s SkipList) Front() *node {
 	return s.header.Next()
 }
 
