@@ -20,7 +20,7 @@ func (s SkipList) printRepr() {
 }
 
 func TestInitialization(t *testing.T) {
-	s := New(func(l, r interface{}) bool {
+	s := NewMap(func(l, r interface{}) bool {
 		return l.(int) < r.(int)
 	})
 	if !s.lessThan(1, 2) {
