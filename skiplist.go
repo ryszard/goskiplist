@@ -15,7 +15,8 @@ func (n *node) Next() *node {
 }
 
 func (n node) IsEnd() bool {
-	return cap(n.forward) == 0
+	return n.Next() == nil
+//	return cap(n.forward) == 0
 }
 
 func (n *node) Key() interface{} {
@@ -28,7 +29,7 @@ func (n *node) Value() interface{} {
 
 func (n node) Len() int {
 	if n.IsEnd() {
-		return 0
+		return 1
 	}
 	return 1 + n.Next().Len()
 }
@@ -40,7 +41,7 @@ func (n node) level() int {
 
 type SkipList struct {
 	lessThan    func(l, r interface{}) bool
-	header, end *node
+	header *node
 }
 
 func (s SkipList) Len() int {
@@ -74,7 +75,7 @@ func (s SkipList) randomLevel() (n int) {
 func (s *SkipList) Get(key interface{}) (value interface{}, present bool) {
 	candidate := s.getPath(nil, key)
 
-	if !candidate.IsEnd() && candidate.key == key {
+	if candidate != nil && candidate.key == key {
 		return candidate.value, true
 	}
 
@@ -89,7 +90,7 @@ func (s *SkipList) Get(key interface{}) (value interface{}, present bool) {
 func (s *SkipList) getPath(update []*node, key interface{}) *node {
 	current := s.header
 	for i := s.level(); i >= 0; i-- {
-		for s.LessThan(current.forward[i].key, key) {
+		for current.forward[i] != nil && s.LessThan(current.forward[i].key, key) {
 			current = current.forward[i]
 		}
 		if update != nil {
@@ -105,7 +106,7 @@ func (s *SkipList) Set(key, value interface{}) {
 	update := make([]*node, s.level()+1, maxLevel)
 	candidate := s.getPath(update, key)
 
-	if candidate.key == key {
+	if candidate != nil && candidate.key == key {
 		candidate.value = value
 		return
 	}
@@ -118,7 +119,7 @@ func (s *SkipList) Set(key, value interface{}) {
 		// level links to the header.
 		for i := currentLevel + 1; i <= newLevel; i++ {
 			update = append(update, s.header)
-			s.header.forward = append(s.header.forward, s.end)
+			s.header.forward = append(s.header.forward, nil)
 		}
 	}
 
@@ -130,7 +131,10 @@ func (s *SkipList) Set(key, value interface{}) {
 	}
 }
 
-func (s *SkipList) Delete(key interface{}) (interface{}, bool) {
+// Delete removes node with key key from s and returns its value. A
+// second value, a boolean, is return to indicate if key was present
+// in s.
+func (s *SkipList) Delete(key interface{}) (value interface{}, present bool) {
 	update := make([]*node, s.level()+1, maxLevel)
 	candidate := s.getPath(update, key)
 
@@ -142,28 +146,43 @@ func (s *SkipList) Delete(key interface{}) (interface{}, bool) {
 		update[i].forward[i] = candidate.forward[i]
 	}
 
-	for s.level() > 0 && s.header.forward[s.level()] == s.end {
+	for s.level() > 0 && s.header.forward[s.level()] == nil {
 		s.header.forward = s.header.forward[:s.level() - 1]
 	}
 
 	return candidate.Value(), true
 }
 
-
 func New(f func(l, r interface{}) bool) *SkipList {
-	end := &node{make([]*node, 0, 0), nil, nil}
-	header := &node{[]*node{end}, nil, nil}
-	return &SkipList{lessThan: f, header: header, end: end}
+	//end := &node{make([]*node, 0, 0), nil, nil}
+	header := &node{[]*node{nil}, nil, nil}
+	return &SkipList{lessThan: f, header: header}
 }
 
-func NewIntKey() *SkipList {
+
+type Comparable interface {
+	LessThan(Comparable) bool
+}
+
+// NewComparable returns a SkipList that accepts skiplist.Comparable
+// objects as keys.
+func NewComparableMap() (s *SkipList) {
+	comparator := func(left, right interface{}) bool {
+		return left.(Comparable).LessThan(right.(Comparable))
+	}
+	return New(comparator)
+	
+}
+
+// NewIntKey returns a SkipList that accepts int keys.
+func NewIntMap() *SkipList {
 	return New(func(l, r interface{}) bool {
 		return l.(int) < r.(int)
 	})
 }
 
-
-
-// TODO(szopa): deletion, test that there are no duplicates, test that
-// the values are in order, get a unique source of randomness (that
-// can be seeded separately).
+func NewStringMap() *SkipList {
+	return New(func(l, r interface{}) bool {
+		return l.(string) < r.(string)
+	})
+}
