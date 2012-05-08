@@ -41,19 +41,17 @@ func (n node) Len() int {
 	return 1
 }
 
-func (n node) level() int {
-	return len(n.forward) - 1
-}
-
 type SkipList struct {
 	lessThan func(l, r interface{}) bool
 	header   *node
 }
 
 // Len returns the length of s.
-func (s *SkipList) Len() int {
-	// header shouldn't count as an element of the list.
-	return s.header.Len() - 1
+func (s *SkipList) Len() (i int) {
+	for node := s.Front(); node != nil; node = node.Next() {
+		i++
+	}
+	return
 }
 
 func (s *SkipList) Front() *node {
@@ -61,7 +59,7 @@ func (s *SkipList) Front() *node {
 }
 
 func (s *SkipList) level() int {
-	return s.header.level()
+	return len(s.header.forward) - 1
 }
 
 func (s *SkipList) LessThan(l, r interface{}) bool {

@@ -7,7 +7,7 @@ import "math/rand"
 func (s SkipList) printRepr() {
 
 	for node := s.Front(); node != nil; node = node.Next() {
-		fmt.Printf("%v: %v (level %d)\n", node.key, node.value, node.level())
+		fmt.Printf("%v: %v (level %d)\n", node.key, node.value, len(node.forward))
 		for i, link := range node.forward {
 			if link != nil {
 				fmt.Printf("\t%d: -> %v\n", i, link.key)
