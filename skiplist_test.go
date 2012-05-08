@@ -6,7 +6,7 @@ import "math/rand"
 
 func (s SkipList) printRepr() {
 
-	for node := s.header; !node.IsEnd(); node = node.forward[0] {
+	for node := s.Iter(); node != nil; node = node.Next() {
 		fmt.Printf("%v: %v (level %d)\n", node.key, node.value, node.level())
 		for i, link := range node.forward {
 			if link != nil {
@@ -28,34 +28,17 @@ func TestInitialization(t *testing.T) {
 	}
 }
 
-func TestIsEnd(t *testing.T) {
+func TestHasNext(t *testing.T) {
 	s := NewIntMap()
-	// if !s.end.IsEnd() {
-	//  	t.Errorf("IsEnd() is flase for s.end.")
-	// }
-
-	// if s.header.IsEnd() {
-	// 	t.Errorf("IsEnd() is true for s.header.")
-	// }
-
 	s.Set(0, 0)
 	node := s.header.Next()
 	if node.Key() != 0 {
 		t.Fatalf("We got the wrong node: %v.", node)
 	}
 
-	// if node.IsEnd() {
-	// 	t.Errorf("IsEnd() should be false for %v.", node)
-	// }
-
-	// if node == s.end {
-	// 	t.Errorf("%v should not be equal to s.end.", node)
-	// }
-
-	// if node.Next() != s.end {
-	// 	t.Errorf("node.next should not be equal to s.end (was %v).", node, node.Next())
-	// }
-
+	if node.HasNext() {
+		t.Errorf("%v should be the last node.", node)
+	}
 }
 
 func (s SkipList) check(t *testing.T, key, wanted int) bool {
@@ -69,15 +52,14 @@ func (s SkipList) check(t *testing.T, key, wanted int) bool {
 func TestGet(t *testing.T) {
 	s := NewIntMap()
 	s.Set(0, 0)
-	
+
 	if value, present := s.Get(0); !(value == 0 && present) {
 		t.Errorf("%v, %v instead of %v, %v", value, present, 0, true)
 	}
-	
+
 	if value, present := s.Get(100); value != nil || present {
 		t.Errorf("%v, %v instead of %v, %v", value, present, nil, false)
 	}
-
 
 }
 
@@ -121,11 +103,11 @@ func TestDelete(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		s.Set(i, i)
 	}
-	for i := 0; i < 10; i+=2 {
+	for i := 0; i < 10; i += 2 {
 		s.Delete(i)
 	}
 
-	for i := 0; i < 10; i+=2 {
+	for i := 0; i < 10; i += 2 {
 		if _, present := s.Get(i); present {
 			t.Errorf("%d should not be present in s", i)
 		}
@@ -133,7 +115,7 @@ func TestDelete(t *testing.T) {
 	if t.Failed() {
 		s.printRepr()
 	}
-	
+
 }
 
 func TestLen(t *testing.T) {
@@ -189,7 +171,6 @@ func makeRandomList(n int) (s *SkipList) {
 	return
 }
 
-
 func LookupBenchmark(b *testing.B, n int) {
 	b.StopTimer()
 	s := makeRandomList(n)
@@ -199,7 +180,6 @@ func LookupBenchmark(b *testing.B, n int) {
 	}
 }
 
-
 // Make sure that all the keys are unique and are returned in order.
 func TestSanity(t *testing.T) {
 	s := NewIntMap()
@@ -208,14 +188,13 @@ func TestSanity(t *testing.T) {
 		s.Set(insert, insert)
 	}
 	var last int = 0
-	for i := s.Iter(); !i.IsEnd(); i = i.Next() {
+	for i := s.Iter(); i != nil; i = i.Next() {
 		if last != 0 && i.Key().(int) <= last {
 			t.Errorf("Not in order!")
 		}
 		last = i.Key().(int)
 	}
 }
-
 
 type MyComparable struct {
 	value int
@@ -248,11 +227,9 @@ func BenchmarkLookup16(b *testing.B) {
 	LookupBenchmark(b, 16)
 }
 
-
 func BenchmarkLookup256(b *testing.B) {
 	LookupBenchmark(b, 256)
 }
-
 
 func BenchmarkLookup65536(b *testing.B) {
 	LookupBenchmark(b, 65536)

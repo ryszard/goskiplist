@@ -14,9 +14,8 @@ func (n *node) Next() *node {
 	return n.forward[0]
 }
 
-func (n node) IsEnd() bool {
-	return n.Next() == nil
-//	return cap(n.forward) == 0
+func (n node) HasNext() bool {
+	return n.Next() != nil
 }
 
 func (n *node) Key() interface{} {
@@ -28,20 +27,19 @@ func (n *node) Value() interface{} {
 }
 
 func (n node) Len() int {
-	if n.IsEnd() {
-		return 1
+	if n.HasNext() {
+		return 1 + n.Next().Len()
 	}
-	return 1 + n.Next().Len()
+	return 1
 }
 
 func (n node) level() int {
 	return len(n.forward) - 1
 }
 
-
 type SkipList struct {
-	lessThan    func(l, r interface{}) bool
-	header *node
+	lessThan func(l, r interface{}) bool
+	header   *node
 }
 
 func (s SkipList) Len() int {
@@ -100,6 +98,7 @@ func (s *SkipList) getPath(update []*node, key interface{}) *node {
 	return current.Next()
 }
 
+// Set the value associated with key in the 
 func (s *SkipList) Set(key, value interface{}) {
 
 	// s.level starts from 0, so we need to allocate one 
@@ -147,18 +146,18 @@ func (s *SkipList) Delete(key interface{}) (value interface{}, present bool) {
 	}
 
 	for s.level() > 0 && s.header.forward[s.level()] == nil {
-		s.header.forward = s.header.forward[:s.level() - 1]
+		s.header.forward = s.header.forward[:s.level()-1]
 	}
 
 	return candidate.Value(), true
 }
 
-func New(f func(l, r interface{}) bool) *SkipList {
-	//end := &node{make([]*node, 0, 0), nil, nil}
-	header := &node{[]*node{nil}, nil, nil}
-	return &SkipList{lessThan: f, header: header}
+// New returns a new SkipList that will use lessThan as the comparison
+// function. lessThan should be linear order on keys you intend to use
+// with the SkipList.
+func New(lessThan func(l, r interface{}) bool) *SkipList {
+	return &SkipList{f, &node{[]*node{nil}, nil, nil}}
 }
-
 
 type Comparable interface {
 	LessThan(Comparable) bool
@@ -171,7 +170,7 @@ func NewComparableMap() (s *SkipList) {
 		return left.(Comparable).LessThan(right.(Comparable))
 	}
 	return New(comparator)
-	
+
 }
 
 // NewIntKey returns a SkipList that accepts int keys.
@@ -181,6 +180,7 @@ func NewIntMap() *SkipList {
 	})
 }
 
+// NewStringMap returns a SkipList accepting strings as keys.
 func NewStringMap() *SkipList {
 	return New(func(l, r interface{}) bool {
 		return l.(string) < r.(string)
