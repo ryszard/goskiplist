@@ -10,6 +10,11 @@ package skiplist
 
 import "math/rand"
 
+// TODO(ryszard):
+//   - A separately seeded source of randomness
+//   - Make maxLevel configurable
+//   - Sets.
+
 const p = 0.5
 const maxLevel = 32 // maybe this should be configurable
 

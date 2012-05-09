@@ -1,8 +1,10 @@
 package skiplist
 
-import "testing"
-import "fmt"
-import "math/rand"
+import (
+	"fmt"
+	"math/rand"
+	"testing"
+)
 
 func (s SkipList) printRepr() {
 
