@@ -52,6 +52,8 @@ func (s *SkipList) Len() (i int) {
 	return
 }
 
+// Front returns the first element of s in a way suitable for
+// iteration.
 func (s *SkipList) Front() *node {
 	return s.header.Next()
 }
@@ -68,7 +70,7 @@ func (s *SkipList) LessThan(l, r interface{}) bool {
 	return s.lessThan(l, r)
 }
 
-// Returns a new random level in 1..maxLevel.
+// Returns a new random level.
 func (s SkipList) randomLevel() (n int) {
 	for n = 0; n < maxLevel && rand.Float64() < p; n++ {
 	}
