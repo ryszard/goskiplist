@@ -27,7 +27,7 @@ func (n *node) Next() *node {
 	return n.forward[0]
 }
 
-func (n node) HasNext() bool {
+func (n *node) HasNext() bool {
 	return n.Next() != nil
 }
 
