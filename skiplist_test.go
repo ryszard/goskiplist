@@ -198,21 +198,21 @@ func TestSanity(t *testing.T) {
 	}
 }
 
-type MyComparable struct {
+type MyOrdered struct {
 	value int
 }
 
-func (me MyComparable) LessThan(other Comparable) bool {
-	return me.value < other.(MyComparable).value
+func (me MyOrdered) LessThan(other Ordered) bool {
+	return me.value < other.(MyOrdered).value
 }
 
-func TestComparable(t *testing.T) {
-	s := NewComparableMap()
-	s.Set(MyComparable{0}, 0)
-	s.Set(MyComparable{1}, 1)
+func TestOrdered(t *testing.T) {
+	s := NewOrderedMap()
+	s.Set(MyOrdered{0}, 0)
+	s.Set(MyOrdered{1}, 1)
 
-	if val, _ := s.Get(MyComparable{0}); val != 0 {
-		t.Errorf("Wrong value for MyComparable{0}. Should have been %d.", val)
+	if val, _ := s.Get(MyOrdered{0}); val != 0 {
+		t.Errorf("Wrong value for MyOrdered{0}. Should have been %d.", val)
 	}
 }
 

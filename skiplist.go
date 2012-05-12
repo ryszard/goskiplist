@@ -169,15 +169,15 @@ func NewMap(lessThan func(l, r interface{}) bool) *SkipList {
 	return &SkipList{lessThan, &node{[]*node{nil}, nil, nil}}
 }
 
-type Comparable interface {
-	LessThan(Comparable) bool
+type Ordered interface {
+	LessThan(Ordered) bool
 }
 
-// NewComparable returns a SkipList that accepts skiplist.Comparable
+// NewOrderedMap returns a SkipList that accepts skiplist.Ordered
 // objects as keys.
-func NewComparableMap() (s *SkipList) {
+func NewOrderedMap() (s *SkipList) {
 	comparator := func(left, right interface{}) bool {
-		return left.(Comparable).LessThan(right.(Comparable))
+		return left.(Ordered).LessThan(right.(Ordered))
 	}
 	return NewMap(comparator)
 
