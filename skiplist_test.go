@@ -1,3 +1,17 @@
+// Copyright 2012 Google Inc. All rights reserved.
+// Author: Ric Szopa (Ryszard) <ryszard.szopa@gmail.com>
+
+// Package skiplist implements skip list based maps and sets.
+//
+// Skip lists are a data structure that can be used in place of
+// balanced trees. Skip lists use probabilistic balancing rather than
+// strictly enforced balancing and as a result the algorithms for
+// insertion and deletion in skip lists are much simpler and
+// significantly faster than equivalent algorithms for balanced trees.
+//
+// Skip lists were first described in Pugh, William (June 1990). "Skip
+// lists: a probabilistic alternative to balanced
+// trees". Communications of the ACM 33 (6): 668–676
 package skiplist
 
 import (
@@ -6,9 +20,9 @@ import (
 	"testing"
 )
 
-func (s SkipList) printRepr() {
+func (s *SkipList) printRepr() {
 
-	for node := s.Front(); node != nil; node = node.Next() {
+	for node := s.header.next(); node != nil; node = node.next() {
 		fmt.Printf("%v: %v (level %d)\n", node.key, node.value, len(node.forward))
 		for i, link := range node.forward {
 			if link != nil {
@@ -22,7 +36,7 @@ func (s SkipList) printRepr() {
 }
 
 func TestInitialization(t *testing.T) {
-	s := NewMap(func(l, r interface{}) bool {
+	s := NewCustomMap(func(l, r interface{}) bool {
 		return l.(int) < r.(int)
 	})
 	if !s.lessThan(1, 2) {
@@ -30,25 +44,34 @@ func TestInitialization(t *testing.T) {
 	}
 }
 
+func TestNodeNext(t *testing.T) {
+	n := new(node)
+	if next := n.next(); next != nil {
+		t.Errorf("Next() should be nil for an empty node.")
+	}
+
+	if n.hasNext() {
+		t.Errorf("hasNext() should be false for an empty node.")
+	}
+}
+
 func TestHasNext(t *testing.T) {
 	s := NewIntMap()
 	s.Set(0, 0)
-	node := s.header.Next()
-	if node.Key() != 0 {
+	node := s.header.next()
+	if node.key != 0 {
 		t.Fatalf("We got the wrong node: %v.", node)
 	}
 
-	if node.HasNext() {
+	if node.hasNext() {
 		t.Errorf("%v should be the last node.", node)
 	}
 }
 
-func (s SkipList) check(t *testing.T, key, wanted int) bool {
+func (s *SkipList) check(t *testing.T, key, wanted int) {
 	if got, _ := s.Get(key); got != wanted {
-		t.Errorf("Wanted %v, got %v.", wanted, got)
-		return true
+		t.Errorf("For key %v wanted value %v, got %v.", key, wanted, got)
 	}
-	return false
 }
 
 func TestGet(t *testing.T) {
@@ -65,6 +88,26 @@ func TestGet(t *testing.T) {
 
 }
 
+func TestGetGreaterOrEqual(t *testing.T) {
+	s := NewIntMap()
+
+	if _, value, present := s.GetGreaterOrEqual(5); !(value == nil && !present) {
+		t.Errorf("s.GetGreaterOrEqual(5) should have returned nil and false for an empty map, not %v and %v.", value, present)
+	}
+
+	s.Set(0, 0)
+
+	if _, value, present := s.GetGreaterOrEqual(5); !(value == nil && !present) {
+		t.Errorf("s.GetGreaterOrEqual(5) should have returned nil and false for an empty map, not %v and %v.", value, present)
+	}
+
+	s.Set(10, 10)
+
+	if key, value, present := s.GetGreaterOrEqual(5); !(value == 10 && key == 10 && present) {
+		t.Errorf("s.GetGreaterOrEqual(5) should have returned 10 and true, not %v and %v.", value, present)
+	}
+}
+
 func TestSet(t *testing.T) {
 	s := NewIntMap()
 	if l := s.Len(); l != 0 {
@@ -76,8 +119,9 @@ func TestSet(t *testing.T) {
 	if l := s.Len(); l != 2 {
 		t.Errorf("Len is not 2, it is %v", l)
 	}
-	if s.check(t, 0, 0) {
-		t.Errorf("%v", s.header.Next())
+	s.check(t, 0, 0)
+	if t.Failed() {
+		t.Errorf("header.Next() after s.Set(0, 0) and s.Set(1, 1): %v.", s.header.next())
 	}
 	s.check(t, 1, 1)
 
@@ -114,6 +158,11 @@ func TestDelete(t *testing.T) {
 			t.Errorf("%d should not be present in s", i)
 		}
 	}
+
+	if v, present := s.Delete(10000); v != nil || present {
+		t.Errorf("Deleting a non-existent key should return nil, false, and not %v, %v.", v, present)
+	}
+
 	if t.Failed() {
 		s.printRepr()
 	}
@@ -129,6 +178,19 @@ func TestLen(t *testing.T) {
 		t.Errorf("Length should be equal to 10, not %v.", length)
 		s.printRepr()
 	}
+	for i := 0; i < 5; i++ {
+		s.Delete(i)
+	}
+	if length := s.Len(); length != 5 {
+		t.Errorf("Length should be equal to 5, not %v.", length)
+	}
+
+	s.Delete(10000)
+
+	if length := s.Len(); length != 5 {
+		t.Errorf("Length should be equal to 5, not %v.", length)
+	}
+
 }
 
 func TestIteration(t *testing.T) {
@@ -139,7 +201,8 @@ func TestIteration(t *testing.T) {
 
 	seen := 0
 	var lastKey int
-	for i := s.Front(); i != nil; i = i.Next() {
+
+	for i := s.Iterator(); i.Next(); {
 		seen++
 		lastKey = i.Key().(int)
 		if i.Key() != i.Value() {
@@ -150,6 +213,41 @@ func TestIteration(t *testing.T) {
 	if seen != s.Len() {
 		t.Errorf("Not all the items in s where iterated through (seen %d, should have seen %d). Last one seen was %d.", seen, s.Len(), lastKey)
 	}
+}
+
+func TestRangeIteration(t *testing.T) {
+	s := NewIntMap()
+	for i := 0; i < 20; i++ {
+		s.Set(i, i)
+	}
+
+	max, min := 0, 100000
+	var lastKey, seen int
+	i := s.Range(5, 10)
+	for i.Next() {
+		seen++
+		lastKey = i.Key().(int)
+		if lastKey > max {
+			max = lastKey
+		}
+		if lastKey < min {
+			min = lastKey
+		}
+		if i.Key() != i.Value() {
+			t.Errorf("Wrong value for key %v: %v.", i.Key(), i.Value())
+		}
+	}
+	if seen != 5 {
+		t.Errorf("The number of items yielded is incorrect (should be 5, was %v)", seen)
+	}
+	if min != 5 {
+		t.Errorf("The smallest element should have been 5, not %v", min)
+	}
+
+	if max != 9 {
+		t.Errorf("The largest element should have been 9, not %v", max)
+	}
+
 }
 
 func TestSomeMore(t *testing.T) {
@@ -164,13 +262,13 @@ func TestSomeMore(t *testing.T) {
 
 }
 
-func makeRandomList(n int) (s *SkipList) {
-	s = NewIntMap()
+func makeRandomList(n int) *SkipList {
+	s := NewIntMap()
 	for i := 0; i < n; i++ {
 		insert := rand.Int()
 		s.Set(insert, insert)
 	}
-	return
+	return s
 }
 
 func LookupBenchmark(b *testing.B, n int) {
@@ -190,7 +288,8 @@ func TestSanity(t *testing.T) {
 		s.Set(insert, insert)
 	}
 	var last int = 0
-	for i := s.Front(); i != nil; i = i.Next() {
+
+	for i := s.Iterator(); i.Next(); {
 		if last != 0 && i.Key().(int) <= last {
 			t.Errorf("Not in order!")
 		}
@@ -207,7 +306,7 @@ func (me MyOrdered) LessThan(other Ordered) bool {
 }
 
 func TestOrdered(t *testing.T) {
-	s := NewOrderedMap()
+	s := New()
 	s.Set(MyOrdered{0}, 0)
 	s.Set(MyOrdered{1}, 1)
 
@@ -222,6 +321,48 @@ func TestNewStringMap(t *testing.T) {
 	s.Set("b", 2)
 	if value, _ := s.Get("a"); value != 1 {
 		t.Errorf("Expected 1, got %v.", value)
+	}
+}
+
+func TestGetNilKey(t *testing.T) {
+	s := NewStringMap()
+	if v, present := s.Get(nil); v != nil || present {
+		t.Errorf("s.Get(nil) should return nil, false (not %v, %v).", v, present)
+	}
+
+}
+
+func TestSetNilKey(t *testing.T) {
+	s := NewStringMap()
+
+	defer func() {
+		if err := recover(); err == nil {
+			t.Errorf("s.Set(nil, 0) should have panicked.")
+		}
+	}()
+
+	s.Set(nil, 0)
+
+}
+
+func TestSetMaxLevelInFlight(t *testing.T) {
+	s := NewIntMap()
+	s.MaxLevel = 2
+	for i := 0; i < 64; i++ {
+		insert := 2 * rand.Int()
+		s.Set(insert, insert)
+	}
+
+	s.MaxLevel = 64
+	for i := 0; i < 65536; i++ {
+		insert := 2*rand.Int() + 1
+		s.Set(insert, insert)
+	}
+
+	for i := s.Iterator(); i.Next(); {
+		if v, _ := s.Get(i.Key()); v != i.Key() {
+			t.Errorf("Bad values in the skip list (%v). Inserted before the call to s.SetMax(): %t.", v, i.Key().(int)%2 == 0)
+		}
 	}
 }
 
