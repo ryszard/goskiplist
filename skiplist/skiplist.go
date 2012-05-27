@@ -319,11 +319,6 @@ func NewStringMap() *SkipList {
 }
 
 // Set is an ordered set data structure.
-type Set struct {
-	skiplist SkipList
-}
-
-// NewSet returns a new Set.
 //
 // Its elements must implement the Ordered interface. It uses a
 // SkipList for storage, and it gives you similar performance
@@ -333,9 +328,14 @@ type Set struct {
 // *Set):
 //
 //	for i := s.Iterator(); i.Next(); {
-//		// do something with i.Key() and i.Value()
+//		// do something with i.Key().
+//		// i.Value() will be nil.
 //	}
+type Set struct {
+	skiplist SkipList
+}
 
+// NewSet returns a new Set.
 func NewSet() *Set {
 	comparator := func(left, right interface{}) bool {
 		return left.(Ordered).LessThan(right.(Ordered))
