@@ -439,6 +439,11 @@ func TestNewSet(t *testing.T) {
 		t.Errorf("After removing one element, set.Len() should be equal to 5, not %v.", length)
 	}
 
+	set.SetMaxLevel(10)
+	if ml := set.GetMaxLevel(); ml != 10 {
+		t.Errorf("MaxLevel for set should be 10, not %v", ml)
+	}
+
 }
 
 func TestSetRangeIterator(t *testing.T) {

@@ -327,7 +327,15 @@ type Set struct {
 //
 // Its elements must implement the Ordered interface. It uses a
 // SkipList for storage, and it gives you similar performance
-// guaranteed.
+// guarantees.
+//
+// To iterate over a set (where s is a
+// *Set):
+//
+//	for i := s.Iterator(); i.Next(); {
+//		// do something with i.Key() and i.Value()
+//	}
+
 func NewSet() *Set {
 	comparator := func(left, right interface{}) bool {
 		return left.(Ordered).LessThan(right.(Ordered))
@@ -390,4 +398,14 @@ func (s *Set) Iterator() Iterator {
 // the set that are greater or equal than from, but less than to.
 func (s *Set) Range(from, to interface{}) Iterator {
 	return s.skiplist.Range(from, to)
+}
+
+// SetMaxLevel sets MaxLevel in the underlying skip list.
+func (s *Set) SetMaxLevel(newMaxLevel int) {
+	s.skiplist.MaxLevel = newMaxLevel
+}
+
+// GetMaxLevel returns MaxLevel fo the underlying skip list.
+func (s *Set) GetMaxLevel() int {
+	return s.skiplist.MaxLevel
 }
