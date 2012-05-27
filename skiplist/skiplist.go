@@ -16,9 +16,8 @@ package skiplist
 
 import "math/rand"
 
-// TODO(szopa):
+// TODO(ryszard):
 //   - A separately seeded source of randomness
-//   - Sets.
 
 // p is the fraction of nodes with level i pointers that also have
 // level i+1 pointers. p equal to 1/4 is a good value from the point
@@ -271,7 +270,7 @@ func (s *SkipList) Delete(key interface{}) (value interface{}, ok bool) {
 	}
 
 	for s.level() > 0 && s.header.forward[s.level()] == nil {
-		s.header.forward = s.header.forward[:s.level()-1]
+		s.header.forward = s.header.forward[:s.level()]
 	}
 	s.length--
 	return candidate.value, true
@@ -317,4 +316,78 @@ func NewStringMap() *SkipList {
 	return NewCustomMap(func(l, r interface{}) bool {
 		return l.(string) < r.(string)
 	})
+}
+
+// Set is an ordered set data structure.
+type Set struct {
+	skiplist SkipList
+}
+
+// NewSet returns a new Set.
+//
+// Its elements must implement the Ordered interface. It uses a
+// SkipList for storage, and it gives you similar performance
+// guaranteed.
+func NewSet() *Set {
+	comparator := func(left, right interface{}) bool {
+		return left.(Ordered).LessThan(right.(Ordered))
+	}
+	return NewCustomSet(comparator)
+}
+
+// NewCustomSet returns a new Set that will use lessThan as the
+// comparison function. lessThan should define a linear order on
+// elements you intend to use with the Set.
+func NewCustomSet(lessThan func(l, r interface{}) bool) *Set {
+	return &Set{skiplist: SkipList{
+		lessThan: lessThan,
+		header:   &node{forward: []*node{nil}},
+		MaxLevel: DefaultMaxLevel,
+	}}
+}
+
+// NewIntSet returns a new Set that accepts int elements.
+func NewIntSet() *Set {
+	return NewCustomSet(func(l, r interface{}) bool {
+		return l.(int) < r.(int)
+	})
+}
+
+// NewStringSet returns a new Set that acceots string elements.
+func NewStringSet() *Set {
+	return NewCustomSet(func(l, r interface{}) bool {
+		return l.(string) < r.(string)
+	})
+}
+
+// Add adds key to s.
+func (s *Set) Add(key interface{}) {
+	s.skiplist.Set(key, nil)
+}
+
+// Remove tries to remove key from the set. It returns true if key was
+// present.
+func (s *Set) Remove(key interface{}) (ok bool) {
+	_, ok = s.skiplist.Delete(key)
+	return ok
+}
+
+// Len returns the length of the set.
+func (s *Set) Len() int {
+	return s.skiplist.Len()
+}
+// Contains returns true if key is present in s.
+func (s *Set) Contains(key interface{}) bool {
+	_, ok := s.skiplist.Get(key)
+	return ok
+}
+
+func (s *Set) Iterator() Iterator {
+	return s.skiplist.Iterator()
+}
+
+// Range returns an iterator that will go through all the elements of
+// the set that are greater or equal than from, but less than to.
+func (s *Set) Range(from, to interface{}) Iterator {
+	return s.skiplist.Range(from, to)
 }

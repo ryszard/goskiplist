@@ -22,6 +22,15 @@ import (
 
 func (s *SkipList) printRepr() {
 
+	fmt.Printf("header:\n")
+	for i, link := range s.header.forward {
+		if link != nil {
+			fmt.Printf("\t%d: -> %v\n", i, link.key)
+		} else {
+			fmt.Printf("\t%d: -> END\n", i)
+		}
+	}
+
 	for node := s.header.next(); node != nil; node = node.next() {
 		fmt.Printf("%v: %v (level %d)\n", node.key, node.value, len(node.forward))
 		for i, link := range node.forward {
@@ -363,6 +372,102 @@ func TestSetMaxLevelInFlight(t *testing.T) {
 		if v, _ := s.Get(i.Key()); v != i.Key() {
 			t.Errorf("Bad values in the skip list (%v). Inserted before the call to s.SetMax(): %t.", v, i.Key().(int)%2 == 0)
 		}
+	}
+}
+
+func TestDeletingHighestLevelNodeDoesntBreakSkiplist(t *testing.T) {
+	s := NewIntMap()
+	elements := []int{1, 3, 5, 7, 0, 4, 5, 10, 11}
+
+	for _, i := range elements {
+		s.Set(i, i)
+	}
+
+	highestLevelNode := s.header.forward[len(s.header.forward)-1]
+
+	s.Delete(highestLevelNode.key)
+
+	seen := 0
+	for i := s.Iterator(); i.Next(); {
+		seen++
+	}
+	if seen == 0 {
+		t.Errorf("Iteration is broken (no elements seen).")
+	}
+}
+
+func TestNewSet(t *testing.T) {
+	set := NewIntSet()
+	elements := []int{1, 3, 5, 7, 0, 4, 5}
+
+	for _, i := range elements {
+		set.Add(i)
+	}
+
+	if length := set.Len(); length != 6 {
+		t.Errorf("set.Len() should be equal to 6, not %v.", length)
+	}
+
+	if !set.Contains(3) {
+		t.Errorf("set should contain 3.")
+	}
+
+	if set.Contains(1000) {
+		t.Errorf("set should not contain 1000.")
+	}
+
+	removed := set.Remove(1)
+
+	if !removed {
+		t.Errorf("Remove returned false for element that was present in set.")
+	}
+
+	seen := 0
+	for i := set.Iterator(); i.Next(); {
+		seen++
+	}
+
+	if seen != 5 {
+		t.Errorf("Iterator() iterated through %v elements. Should have been 5.", seen)
+	}
+
+	if set.Contains(1) {
+		t.Errorf("1 was removed, set should not contain 1.")
+	}
+
+	if length := set.Len(); length != 5 {
+		t.Errorf("After removing one element, set.Len() should be equal to 5, not %v.", length)
+	}
+
+}
+
+func TestSetRangeIterator(t *testing.T) {
+	set := NewIntSet()
+	elements := []int{0, 1, 3, 5}
+
+	for _, i := range elements {
+		set.Add(i)
+	}
+
+	seen := 0
+	for i := set.Range(2, 1000); i.Next(); {
+		seen++
+	}
+	if seen != 2 {
+		t.Errorf("There should have been 2 elements in Range(2, 1000), not %v.", seen)
+	}
+
+}
+
+func TestNewStringSet(t *testing.T) {
+	set := NewStringSet()
+	strings := []string{"ala", "ma", "kota"}
+	for _, v := range strings {
+		set.Add(v)
+	}
+
+	if !set.Contains("ala") {
+		t.Errorf("set should contain \"ala\".")
 	}
 }
 
