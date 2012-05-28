@@ -19,6 +19,69 @@ Installing
 ==========
 
     $ go get github.com/ryszard/goskiplist/skiplist
+	
+Example
+=======
+
+```go
+package main
+
+import (
+	"github.com/ryszard/goskiplist/skiplist"
+	"fmt"
+)
+
+func main() {
+	s := skiplist.NewIntMap()
+	s.Set(7, "seven")
+	s.Set(1, "one")
+	s.Set(0, "zero")
+	s.Set(5, "five")
+	s.Set(9, "nine")
+	s.Set(10, "ten")
+	s.Set(3, "three")
+
+	value, ok := s.Get(0)
+	if ok {
+		fmt.Println(value)
+	}
+	// prints: 
+	//	zero
+
+
+	s.Delete(7)
+
+	value, ok := s.Get(7)
+	if ok {
+		fmt.Println(value)
+	}
+	// prints: nothing.
+
+	s.Set(9, "niner")
+
+	// Print all the elements, in order.
+	for i := s.Iterator(); i.Next(); {
+		fmt.Printf("%d: %s\n", i.Key(), i.Value())
+	}
+	// prints: 
+	//	0: zero
+	// 	1: one
+	// 	3: three
+	// 	5: five
+	// 	9: niner
+	// 	10: ten
+
+	// Print elements in some range.
+	for i := s.Range(3, 10); i.Next(); {
+		fmt.Printf("%d: %s\n", i.Key(), i.Value())
+	}
+	// prints: 
+	// 	3: three
+	// 	5: five
+	// 	9: niner
+
+}
+```
 
 Full documentation
 ==================
