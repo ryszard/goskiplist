@@ -59,7 +59,7 @@ func main() {
 
 	s.Set(9, "niner")
 
-	// Print all the elements, in order.
+	// Iterate through all the elements, in order.
 	for i := s.Iterator(); i.Next(); {
 		fmt.Printf("%d: %s\n", i.Key(), i.Value())
 	}
@@ -71,7 +71,7 @@ func main() {
 	// 	9: niner
 	// 	10: ten
 
-	// Print elements in some range.
+	// Iterate only through elements in some range.
 	for i := s.Range(3, 10); i.Next(); {
 		fmt.Printf("%d: %s\n", i.Key(), i.Value())
 	}
