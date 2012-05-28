@@ -89,3 +89,11 @@ Full documentation
 Read it [online](http://go.pkgdoc.org/github.com/ryszard/goskiplist/skiplist) or run 
 
     $ go doc github.com/ryszard/goskiplist/skiplist
+
+Other implementations
+=====================
+
+  * https://github.com/huandu/skiplist
+  * https://bitbucket.org/taruti/go-skip/src
+  * http://code.google.com/p/leveldb-go/source/browse/leveldb/memdb/memdb.go 
+  (part of [leveldb-go](http://code.google.com/p/leveldb-go/))
