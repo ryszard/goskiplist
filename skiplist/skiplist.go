@@ -384,6 +384,7 @@ func (s *Set) Remove(key interface{}) (ok bool) {
 func (s *Set) Len() int {
 	return s.skiplist.Len()
 }
+
 // Contains returns true if key is present in s.
 func (s *Set) Contains(key interface{}) bool {
 	_, ok := s.skiplist.Get(key)
