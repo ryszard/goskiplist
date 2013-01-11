@@ -53,7 +53,7 @@ func TestInitialization(t *testing.T) {
 	}
 }
 
-func TestNodeNext(t *testing.T) {
+func TestEmptyNodeNext(t *testing.T) {
 	n := new(node)
 	if next := n.next(); next != nil {
 		t.Errorf("Next() should be nil for an empty node.")
@@ -64,7 +64,18 @@ func TestNodeNext(t *testing.T) {
 	}
 }
 
-func TestHasNext(t *testing.T) {
+func TestEmptyNodePrev(t *testing.T) {
+	n := new(node)
+	if previous := n.previous(); previous != nil {
+		t.Errorf("Previous() should be nil for an empty node.")
+	}
+
+	if n.hasPrevious() {
+		t.Errorf("hasPrevious() should be false for an empty node.")
+	}
+}
+
+func TestNodeHasNext(t *testing.T) {
 	s := NewIntMap()
 	s.Set(0, 0)
 	node := s.header.next()
@@ -74,6 +85,15 @@ func TestHasNext(t *testing.T) {
 
 	if node.hasNext() {
 		t.Errorf("%v should be the last node.", node)
+	}
+}
+
+func TestNodeHasPrev(t *testing.T) {
+	s := NewIntMap()
+	s.Set(0, 0)
+	node := s.header.previous()
+	if node != nil {
+		t.Fatalf("Expected no previous entry, got %v.", node)
 	}
 }
 
@@ -94,7 +114,6 @@ func TestGet(t *testing.T) {
 	if value, present := s.Get(100); value != nil || present {
 		t.Errorf("%v, %v instead of %v, %v", value, present, nil, false)
 	}
-
 }
 
 func TestGetGreaterOrEqual(t *testing.T) {
@@ -211,7 +230,9 @@ func TestIteration(t *testing.T) {
 	seen := 0
 	var lastKey int
 
-	for i := s.Iterator(); i.Next(); {
+	i := s.Iterator()
+
+	for i.Next() {
 		seen++
 		lastKey = i.Key().(int)
 		if i.Key() != i.Value() {
@@ -221,6 +242,22 @@ func TestIteration(t *testing.T) {
 
 	if seen != s.Len() {
 		t.Errorf("Not all the items in s where iterated through (seen %d, should have seen %d). Last one seen was %d.", seen, s.Len(), lastKey)
+	}
+
+	for i.Previous() {
+		if i.Key() != i.Value() {
+			t.Errorf("Wrong value for key %v: %v.", i.Key(), i.Value())
+		}
+
+		if i.Key().(int) >= lastKey {
+			t.Errorf("Expected key to descend but ascended from %v to %v.", lastKey, i.Key())
+		}
+
+		lastKey = i.Key().(int)
+	}
+
+	if lastKey != 0 {
+		t.Errorf("Expected to count back to zero, but stopped at key %v.", lastKey)
 	}
 }
 
@@ -246,6 +283,7 @@ func TestRangeIteration(t *testing.T) {
 			t.Errorf("Wrong value for key %v: %v.", i.Key(), i.Value())
 		}
 	}
+
 	if seen != 5 {
 		t.Errorf("The number of items yielded is incorrect (should be 5, was %v)", seen)
 	}
@@ -257,6 +295,34 @@ func TestRangeIteration(t *testing.T) {
 		t.Errorf("The largest element should have been 9, not %v", max)
 	}
 
+	seen = 0
+	min = 100000
+	max = -1
+
+	for i.Previous() {
+		seen++
+		lastKey = i.Key().(int)
+		if lastKey > max {
+			max = lastKey
+		}
+		if lastKey < min {
+			min = lastKey
+		}
+		if i.Key() != i.Value() {
+			t.Errorf("Wrong value for key %v: %v.", i.Key(), i.Value())
+		}
+	}
+
+	if seen != 4 {
+		t.Errorf("The number of items yielded is incorrect (should be 5, was %v)", seen)
+	}
+	if min != 5 {
+		t.Errorf("The smallest element should have been 5, not %v", min)
+	}
+
+	if max != 8 {
+		t.Errorf("The largest element should have been 9, not %v", max)
+	}
 }
 
 func TestSomeMore(t *testing.T) {
@@ -311,8 +377,17 @@ func TestSanity(t *testing.T) {
 	}
 	var last int = 0
 
-	for i := s.Iterator(); i.Next(); {
+	i := s.Iterator()
+
+	for i.Next() {
 		if last != 0 && i.Key().(int) <= last {
+			t.Errorf("Not in order!")
+		}
+		last = i.Key().(int)
+	}
+
+	for i.Previous() {
+		if last != 0 && i.Key().(int) > last {
 			t.Errorf("Not in order!")
 		}
 		last = i.Key().(int)
@@ -486,6 +561,94 @@ func TestNewStringSet(t *testing.T) {
 
 	if !set.Contains("ala") {
 		t.Errorf("set should contain \"ala\".")
+	}
+}
+
+func TestIteratorPrevHoles(t *testing.T) {
+	m := NewIntMap()
+
+	i := m.Iterator()
+
+	m.Set(0, 0)
+	m.Set(1, 1)
+	m.Set(2, 2)
+
+	if !i.Next() {
+		t.Errorf("Expected iterator to move successfully to the next.")
+	}
+
+	if !i.Next() {
+		t.Errorf("Expected iterator to move successfully to the next.")
+	}
+
+	if !i.Next() {
+		t.Errorf("Expected iterator to move successfully to the next.")
+	}
+
+	if i.Key().(int) != 2 && i.Value().(int) != 2 {
+		t.Errorf("Expected iterator to reach key 2 and value 2, got %v and %v.", i.Key(), i.Value())
+	}
+
+	if !i.Previous() {
+		t.Errorf("Expected iterator to move successfully to the previous.")
+	}
+
+	if i.Key().(int) != 1 && i.Value().(int) != 1 {
+		t.Errorf("Expected iterator to reach key 1 and value 1, got %v and %v.", i.Key(), i.Value())
+	}
+
+	if !i.Next() {
+		t.Errorf("Expected iterator to move successfully to the next.")
+	}
+
+	m.Delete(1)
+
+	if !i.Previous() {
+		t.Errorf("Expected iterator to move successfully to the previous.")
+	}
+
+	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
+	}
+}
+
+func TestIteratorSeek(t *testing.T) {
+	m := NewIntMap()
+
+	m.Set(0, 0)
+	m.Set(1, 1)
+	m.Set(2, 2)
+
+	i := m.Seek(0)
+	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
+	}
+
+	i = m.Seek(2)
+	if i.Key().(int) != 2 && i.Value().(int) != 2 {
+		t.Errorf("Expected iterator to reach key 2 and value 2, got %v and %v.", i.Key(), i.Value())
+	}
+
+	i = m.Seek(1)
+	if i.Key().(int) != 1 && i.Value().(int) != 1 {
+		t.Errorf("Expected iterator to reach key 1 and value 1, got %v and %v.", i.Key(), i.Value())
+	}
+
+	i = m.Seek(3)
+	if i != nil {
+		t.Errorf("Expected to receive nil iterator, got %v.", i)
+	}
+
+	m.Set(4, 4)
+
+	i = m.Seek(4)
+	if i.Key().(int) != 4 && i.Value().(int) != 4 {
+		t.Errorf("Expected iterator to reach key 4 and value 4, got %v and %v.", i.Key(), i.Value())
+	}
+
+	i = m.Seek(3)
+	if i.Key().(int) != 4 && i.Value().(int) != 4 {
+		t.Errorf("Expected iterator to reach key 4 and value 4, got %v and %v.", i.Key(), i.Value())
 	}
 }
 

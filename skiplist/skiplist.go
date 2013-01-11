@@ -14,7 +14,9 @@
 // trees". Communications of the ACM 33 (6): 668–676
 package skiplist
 
-import "math/rand"
+import (
+	"math/rand"
+)
 
 // TODO(ryszard):
 //   - A separately seeded source of randomness
@@ -31,6 +33,7 @@ const DefaultMaxLevel = 32
 // list.
 type node struct {
 	forward    []*node
+	backward   *node
 	key, value interface{}
 }
 
@@ -42,9 +45,19 @@ func (n *node) next() *node {
 	return n.forward[0]
 }
 
+// previous returns the previous node in the skip list containing n.
+func (n *node) previous() *node {
+	return n.backward
+}
+
 // hasNext returns true if n has a next node.
 func (n *node) hasNext() bool {
 	return n.next() != nil
+}
+
+// hasPrevious returns true if n has a previous node.
+func (n *node) hasPrevious() bool {
+	return n.previous() != nil
 }
 
 // A SkipList is a map-like data structure that maintains an ordered
@@ -88,10 +101,12 @@ func (s *SkipList) Len() int {
 //
 // Key and Value return the key and the value of the current node.
 type Iterator interface {
-	// Next returns true if the iterator contains more elements
-	// and andvances its state to the next element if that is
-	// possible.
+	// Next returns true if the iterator contains subsequent elements
+	// and advances its state to the next element if that is possible.
 	Next() bool
+	// Previous returns true if the iterator contains previous elements
+	// and rewinds its state to the previous element if that is possible.
+	Previous() bool
 	// Key returns the current key.
 	Key() interface{}
 	// Value returns the current value.
@@ -99,8 +114,9 @@ type Iterator interface {
 }
 
 type iter struct {
-	key, value interface{}
-	current    *node
+	key     interface{}
+	value   interface{}
+	current *node
 }
 
 func (i iter) Key() interface{} {
@@ -112,38 +128,90 @@ func (i iter) Value() interface{} {
 }
 
 func (i *iter) Next() bool {
-	if i.current.hasNext() {
-		i.current = i.current.next()
-		i.key = i.current.key
-		i.value = i.current.value
-		return true
+	if !i.current.hasNext() {
+		return false
 	}
-	return false
+
+	i.current = i.current.next()
+	i.key = i.current.key
+	i.value = i.current.value
+
+	return true
+}
+
+func (i *iter) Previous() bool {
+	if !i.current.hasPrevious() {
+		return false
+	}
+
+	i.current = i.current.previous()
+	i.key = i.current.key
+	i.value = i.current.value
+
+	return true
 }
 
 type rangeIterator struct {
 	iter
-	limit    interface{}
-	skipList *SkipList
+	upperLimit interface{}
+	lowerLimit interface{}
+	skipList   *SkipList
 }
 
 func (i *rangeIterator) Next() bool {
-	if i.current.hasNext() {
-		next := i.current.next()
-		if !i.skipList.lessThan(next.key, i.limit) {
-			return false
-		}
-		i.current = i.current.next()
-		i.key = i.current.key
-		i.value = i.current.value
-		return true
+	if !i.current.hasNext() {
+		return false
 	}
-	return false
+
+	next := i.current.next()
+
+	if !i.skipList.lessThan(next.key, i.upperLimit) {
+		return false
+	}
+
+	i.current = i.current.next()
+	i.key = i.current.key
+	i.value = i.current.value
+	return true
+}
+
+func (i *rangeIterator) Previous() bool {
+	if !i.current.hasPrevious() {
+		return false
+	}
+
+	previous := i.current.previous()
+
+	if i.skipList.lessThan(previous.key, i.lowerLimit) {
+		return false
+	}
+
+	i.current = i.current.previous()
+	i.key = i.current.key
+	i.value = i.current.value
+	return true
 }
 
 // Iterator returns an Iterator that will go through all elements s.
 func (s *SkipList) Iterator() Iterator {
-	return &iter{current: s.header}
+	return &iter{
+		current: s.header,
+	}
+}
+
+// Seek returns a bidirectional iterator starting with the first element whose
+// key is greater or equal to key; otherwise, a nil iterator is returned.
+func (s *SkipList) Seek(key interface{}) Iterator {
+	current := s.getPath(nil, key)
+	if current == nil {
+		return nil
+	}
+
+	return &iter{
+		current: current,
+		key:     current.key,
+		value:   current.value,
+	}
 }
 
 // Range returns an iterator that will go through all the
@@ -151,7 +219,17 @@ func (s *SkipList) Iterator() Iterator {
 // less than to.
 func (s *SkipList) Range(from, to interface{}) Iterator {
 	start := s.getPath(nil, from)
-	return &rangeIterator{iter: iter{current: &node{forward: []*node{start}}}, limit: to, skipList: s}
+	return &rangeIterator{
+		iter: iter{
+			current: &node{
+				forward:  []*node{start},
+				backward: start,
+			},
+		},
+		upperLimit: to,
+		lowerLimit: from,
+		skipList:   s,
+	}
 }
 
 func (s *SkipList) level() int {
@@ -245,13 +323,28 @@ func (s *SkipList) Set(key, value interface{}) {
 		}
 	}
 
-	newNode := &node{make([]*node, newLevel+1, s.effectiveMaxLevel()+1), key, value}
+	newNode := &node{
+		forward: make([]*node, newLevel+1, s.effectiveMaxLevel()+1),
+		key:     key,
+		value:   value,
+	}
+
+	if previous := update[0]; previous.key != nil {
+		newNode.backward = previous
+	}
 
 	for i := 0; i <= newLevel; i++ {
 		newNode.forward[i] = update[i].forward[i]
 		update[i].forward[i] = newNode
 	}
+
 	s.length++
+
+	if newNode.forward[0] != nil {
+		if newNode.forward[0].backward != newNode {
+			newNode.forward[0].backward = newNode
+		}
+	}
 }
 
 // Delete removes the node with the given key.
@@ -265,6 +358,12 @@ func (s *SkipList) Delete(key interface{}) (value interface{}, ok bool) {
 		return nil, false
 	}
 
+	previous := candidate.backward
+	next := candidate.next()
+	if next != nil {
+		next.backward = previous
+	}
+
 	for i := 0; i <= s.level() && update[i].forward[i] == candidate; i++ {
 		update[i].forward[i] = candidate.forward[i]
 	}
@@ -273,6 +372,7 @@ func (s *SkipList) Delete(key interface{}) (value interface{}, ok bool) {
 		s.header.forward = s.header.forward[:s.level()]
 	}
 	s.length--
+
 	return candidate.value, true
 }
 
@@ -282,7 +382,9 @@ func (s *SkipList) Delete(key interface{}) (value interface{}, ok bool) {
 func NewCustomMap(lessThan func(l, r interface{}) bool) *SkipList {
 	return &SkipList{
 		lessThan: lessThan,
-		header:   &node{forward: []*node{nil}},
+		header: &node{
+			forward: []*node{nil},
+		},
 		MaxLevel: DefaultMaxLevel,
 	}
 }
@@ -349,7 +451,9 @@ func NewSet() *Set {
 func NewCustomSet(lessThan func(l, r interface{}) bool) *Set {
 	return &Set{skiplist: SkipList{
 		lessThan: lessThan,
-		header:   &node{forward: []*node{nil}},
+		header: &node{
+			forward: []*node{nil},
+		},
 		MaxLevel: DefaultMaxLevel,
 	}}
 }
