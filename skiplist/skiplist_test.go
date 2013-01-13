@@ -289,6 +289,19 @@ func LookupBenchmark(b *testing.B, n int) {
 	}
 }
 
+func SetBenchmark(b *testing.B, n int) {
+	b.StopTimer()
+	values := []int{}
+	for i := 0; i < b.N; i++ {
+		values = append(values, rand.Int())
+	}
+	s := NewIntMap()
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		s.Set(values[i], values[i])
+	}
+}
+
 // Make sure that all the keys are unique and are returned in order.
 func TestSanity(t *testing.T) {
 	s := NewIntMap()
@@ -486,4 +499,16 @@ func BenchmarkLookup256(b *testing.B) {
 
 func BenchmarkLookup65536(b *testing.B) {
 	LookupBenchmark(b, 65536)
+}
+
+func BenchmarkSet16(b *testing.B) {
+	SetBenchmark(b, 16)
+}
+
+func BenchmarkSet256(b *testing.B) {
+	SetBenchmark(b, 256)
+}
+
+func BenchmarkSet65536(b *testing.B) {
+	SetBenchmark(b, 65536)
 }
