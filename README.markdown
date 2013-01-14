@@ -19,7 +19,7 @@ Installing
 ==========
 
     $ go get github.com/ryszard/goskiplist/skiplist
-	
+
 Example
 =======
 
@@ -27,8 +27,8 @@ Example
 package main
 
 import (
-	"github.com/ryszard/goskiplist/skiplist"
 	"fmt"
+	"github.com/ryszard/goskiplist/skiplist"
 )
 
 func main() {
@@ -41,52 +41,80 @@ func main() {
 	s.Set(10, "ten")
 	s.Set(3, "three")
 
-	value, ok := s.Get(0)
+	firstValue, ok := s.Get(0)
 	if ok {
-		fmt.Println(value)
+		fmt.Println(firstValue)
 	}
-	// prints: 
-	//	zero
-
+	// prints:
+	//  zero
 
 	s.Delete(7)
 
-	value, ok := s.Get(7)
+	secondValue, ok := s.Get(7)
 	if ok {
-		fmt.Println(value)
+		fmt.Println(secondValue)
 	}
 	// prints: nothing.
 
 	s.Set(9, "niner")
 
 	// Iterate through all the elements, in order.
-	for i := s.Iterator(); i.Next(); {
-		fmt.Printf("%d: %s\n", i.Key(), i.Value())
+	unboundIterator := s.Iterator()
+	for unboundIterator.Next() {
+		fmt.Printf("%d: %s\n", unboundIterator.Key(), unboundIterator.Value())
 	}
-	// prints: 
-	//	0: zero
-	// 	1: one
-	// 	3: three
-	// 	5: five
-	// 	9: niner
-	// 	10: ten
+	// prints:
+	//  0: zero
+	//  1: one
+	//  3: three
+	//  5: five
+	//  9: niner
+	//  10: ten
 
+	for unboundIterator.Previous() {
+		fmt.Printf("%d: %s\n", unboundIterator.Key(), unboundIterator.Value())
+	}
+	//  9: niner
+	//  5: five
+	//  3: three
+	//  1: one
+	//  0: zero
+
+	boundIterator := s.Range(3, 10)
 	// Iterate only through elements in some range.
-	for i := s.Range(3, 10); i.Next(); {
-		fmt.Printf("%d: %s\n", i.Key(), i.Value())
+	for boundIterator.Next() {
+		fmt.Printf("%d: %s\n", boundIterator.Key(), boundIterator.Value())
 	}
-	// prints: 
-	// 	3: three
-	// 	5: five
-	// 	9: niner
+	// prints:
+	//  3: three
+	//  5: five
+	//  9: niner
 
+	for boundIterator.Previous() {
+		fmt.Printf("%d: %s\n", boundIterator.Key(), boundIterator.Value())
+	}
+	// prints:
+	//  5: five
+	//  3: three
+
+	var iterator skiplist.Iterator
+
+	iterator = s.Seek(3)
+	fmt.Printf("%d: %s\n", iterator.Key(), iterator.Value())
+	// prints:
+	//  3: three
+
+	iterator = s.Seek(2)
+	fmt.Printf("%d: %s\n", iterator.Key(), iterator.Value())
+	// prints:
+	//  3: three
 }
 ```
 
 Full documentation
 ==================
 
-Read it [online](http://go.pkgdoc.org/github.com/ryszard/goskiplist/skiplist) or run 
+Read it [online](http://go.pkgdoc.org/github.com/ryszard/goskiplist/skiplist) or run
 
     $ go doc github.com/ryszard/goskiplist/skiplist
 
@@ -98,5 +126,5 @@ This list is probably incomplete.
 
   * https://github.com/huandu/skiplist
   * https://bitbucket.org/taruti/go-skip/src
-  * http://code.google.com/p/leveldb-go/source/browse/leveldb/memdb/memdb.go 
+  * http://code.google.com/p/leveldb-go/source/browse/leveldb/memdb/memdb.go
   (part of [leveldb-go](http://code.google.com/p/leveldb-go/))
