@@ -74,6 +74,7 @@ func (n *node) hasPrevious() bool {
 type SkipList struct {
 	lessThan func(l, r interface{}) bool
 	header   *node
+	footer   *node
 	length   int
 	// MaxLevel determines how many items the SkipList can store
 	// efficiently (2^MaxLevel).
@@ -203,6 +204,37 @@ func (s *SkipList) Iterator() Iterator {
 // key is greater or equal to key; otherwise, a nil iterator is returned.
 func (s *SkipList) Seek(key interface{}) Iterator {
 	current := s.getPath(nil, key)
+	if current == nil {
+		return nil
+	}
+
+	return &iter{
+		current: current,
+		key:     current.key,
+		value:   current.value,
+	}
+}
+
+// SeekToFirst returns a bidirectional iterator starting from the first element
+// in the list if the list is populated; otherwise, a nil iterator is returned.
+func (s *SkipList) SeekToFirst() Iterator {
+	if s.length == 0 {
+		return nil
+	}
+
+	current := s.header.next()
+
+	return &iter{
+		current: current,
+		key:     current.key,
+		value:   current.value,
+	}
+}
+
+// SeekToLast returns a bidirectional iterator starting from the last element
+// in the list if the list is populated; otherwise, a nil iterator is returned.
+func (s *SkipList) SeekToLast() Iterator {
+	current := s.footer
 	if current == nil {
 		return nil
 	}
@@ -345,6 +377,10 @@ func (s *SkipList) Set(key, value interface{}) {
 			newNode.forward[0].backward = newNode
 		}
 	}
+
+	if s.footer == nil || s.lessThan(s.footer.key, key) {
+		s.footer = newNode
+	}
 }
 
 // Delete removes the node with the given key.
@@ -359,6 +395,10 @@ func (s *SkipList) Delete(key interface{}) (value interface{}, ok bool) {
 	}
 
 	previous := candidate.backward
+	if s.footer == candidate {
+		s.footer = previous
+	}
+
 	next := candidate.next()
 	if next != nil {
 		next.backward = previous
