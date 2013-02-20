@@ -104,20 +104,30 @@ func (s *SkipList) Len() int {
 type Iterator interface {
 	// Next returns true if the iterator contains subsequent elements
 	// and advances its state to the next element if that is possible.
-	Next() bool
+	Next() (ok bool)
 	// Previous returns true if the iterator contains previous elements
 	// and rewinds its state to the previous element if that is possible.
-	Previous() bool
+	Previous() (ok bool)
 	// Key returns the current key.
 	Key() interface{}
 	// Value returns the current value.
 	Value() interface{}
+	// Seek reduces iterative seek costs for searching forward into the Skip List
+	// by remarking the range of keys over which it has scanned before.  If the
+	// requested key occurs prior to the point, the Skip List will start searching
+	// as a safeguard.  It returns true if the key is within the known range of
+	// the list.
+	Seek(key interface{}) (ok bool)
+	// Close this iterator to reap resources associated with it.  While not
+	// strictly required, it will provide extra hints for the garbage collector.
+	Close()
 }
 
 type iter struct {
-	key     interface{}
-	value   interface{}
 	current *node
+	key     interface{}
+	list    *SkipList
+	value   interface{}
 }
 
 func (i iter) Key() interface{} {
@@ -152,11 +162,55 @@ func (i *iter) Previous() bool {
 	return true
 }
 
+func (i *iter) Seek(key interface{}) (ok bool) {
+	current := i.current
+	list := i.list
+
+	// If the existing iterator outside of the known key range, we should set the
+	// position back to the beginning of the list.
+	if current == nil {
+		current = list.header
+	}
+
+	// If the target key occurs before the current key, we cannot take advantage
+	// of the heretofore spent traversal cost to find it; resetting back to the
+	// beginning is the safest choice.
+	if current.key != nil && list.lessThan(key, current.key) {
+		current = list.header
+	}
+
+	// We should back up to the so that we can seek to our present value if that
+	// is requested for whatever reason.
+	if current.backward == nil {
+		current = list.header
+	} else {
+		current = current.backward
+	}
+
+	current = list.getPath(current, nil, key)
+
+	if current == nil {
+		return
+	}
+
+	i.current = current
+	i.key = current.key
+	i.value = current.value
+
+	return true
+}
+
+func (i *iter) Close() {
+	i.key = nil
+	i.value = nil
+	i.current = nil
+	i.list = nil
+}
+
 type rangeIterator struct {
 	iter
 	upperLimit interface{}
 	lowerLimit interface{}
-	skipList   *SkipList
 }
 
 func (i *rangeIterator) Next() bool {
@@ -166,7 +220,7 @@ func (i *rangeIterator) Next() bool {
 
 	next := i.current.next()
 
-	if !i.skipList.lessThan(next.key, i.upperLimit) {
+	if !i.list.lessThan(next.key, i.upperLimit) {
 		return false
 	}
 
@@ -183,7 +237,7 @@ func (i *rangeIterator) Previous() bool {
 
 	previous := i.current.previous()
 
-	if i.skipList.lessThan(previous.key, i.lowerLimit) {
+	if i.list.lessThan(previous.key, i.lowerLimit) {
 		return false
 	}
 
@@ -193,17 +247,34 @@ func (i *rangeIterator) Previous() bool {
 	return true
 }
 
+func (i *rangeIterator) Seek(key interface{}) (ok bool) {
+	if i.list.lessThan(key, i.lowerLimit) {
+		return
+	} else if !i.list.lessThan(key, i.upperLimit) {
+		return
+	}
+
+	return i.iter.Seek(key)
+}
+
+func (i *rangeIterator) Close() {
+	i.iter.Close()
+	i.upperLimit = nil
+	i.lowerLimit = nil
+}
+
 // Iterator returns an Iterator that will go through all elements s.
 func (s *SkipList) Iterator() Iterator {
 	return &iter{
 		current: s.header,
+		list:    s,
 	}
 }
 
 // Seek returns a bidirectional iterator starting with the first element whose
 // key is greater or equal to key; otherwise, a nil iterator is returned.
 func (s *SkipList) Seek(key interface{}) Iterator {
-	current := s.getPath(nil, key)
+	current := s.getPath(s.header, nil, key)
 	if current == nil {
 		return nil
 	}
@@ -211,6 +282,7 @@ func (s *SkipList) Seek(key interface{}) Iterator {
 	return &iter{
 		current: current,
 		key:     current.key,
+		list:    s,
 		value:   current.value,
 	}
 }
@@ -227,6 +299,7 @@ func (s *SkipList) SeekToFirst() Iterator {
 	return &iter{
 		current: current,
 		key:     current.key,
+		list:    s,
 		value:   current.value,
 	}
 }
@@ -242,6 +315,7 @@ func (s *SkipList) SeekToLast() Iterator {
 	return &iter{
 		current: current,
 		key:     current.key,
+		list:    s,
 		value:   current.value,
 	}
 }
@@ -250,17 +324,17 @@ func (s *SkipList) SeekToLast() Iterator {
 // elements of the skip list that are greater or equal than from, but
 // less than to.
 func (s *SkipList) Range(from, to interface{}) Iterator {
-	start := s.getPath(nil, from)
+	start := s.getPath(s.header, nil, from)
 	return &rangeIterator{
 		iter: iter{
 			current: &node{
 				forward:  []*node{start},
 				backward: start,
 			},
+			list: s,
 		},
 		upperLimit: to,
 		lowerLimit: from,
-		skipList:   s,
 	}
 }
 
@@ -290,7 +364,7 @@ func (s SkipList) randomLevel() (n int) {
 // not present in s). The second return value is true when the key is
 // present.
 func (s *SkipList) Get(key interface{}) (value interface{}, ok bool) {
-	candidate := s.getPath(nil, key)
+	candidate := s.getPath(s.header, nil, key)
 
 	if candidate == nil || candidate.key != key {
 		return nil, false
@@ -303,7 +377,7 @@ func (s *SkipList) Get(key interface{}) (value interface{}, ok bool) {
 // to min. It returns its value, its actual key, and whether such a
 // node is present in the skip list.
 func (s *SkipList) GetGreaterOrEqual(min interface{}) (actualKey, value interface{}, ok bool) {
-	candidate := s.getPath(nil, min)
+	candidate := s.getPath(s.header, nil, min)
 
 	if candidate != nil {
 		return candidate.value, candidate.key, true
@@ -316,9 +390,10 @@ func (s *SkipList) GetGreaterOrEqual(min interface{}) (actualKey, value interfac
 // update is nil, it will be left alone (the candidate node will still
 // be returned). If update is not nil, but it doesn't have enough
 // slots for all the nodes in the path, getPath will panic.
-func (s *SkipList) getPath(update []*node, key interface{}) *node {
-	current := s.header
-	for i := s.level(); i >= 0; i-- {
+func (s *SkipList) getPath(current *node, update []*node, key interface{}) *node {
+	depth := len(current.forward) - 1
+
+	for i := depth; i >= 0; i-- {
 		for current.forward[i] != nil && s.lessThan(current.forward[i].key, key) {
 			current = current.forward[i]
 		}
@@ -332,11 +407,11 @@ func (s *SkipList) getPath(update []*node, key interface{}) *node {
 // Sets set the value associated with key in s.
 func (s *SkipList) Set(key, value interface{}) {
 	if key == nil {
-		panic("nil keys are not supported")
+		panic("goskiplist: nil keys are not supported")
 	}
 	// s.level starts from 0, so we need to allocate one.
 	update := make([]*node, s.level()+1, s.effectiveMaxLevel()+1)
-	candidate := s.getPath(update, key)
+	candidate := s.getPath(s.header, update, key)
 
 	if candidate != nil && candidate.key == key {
 		candidate.value = value
@@ -387,8 +462,11 @@ func (s *SkipList) Set(key, value interface{}) {
 //
 // It returns the old value and whether the node was present.
 func (s *SkipList) Delete(key interface{}) (value interface{}, ok bool) {
+	if key == nil {
+		panic("goskiplist: nil keys are not supported")
+	}
 	update := make([]*node, s.level()+1, s.effectiveMaxLevel())
-	candidate := s.getPath(update, key)
+	candidate := s.getPath(s.header, update, key)
 
 	if candidate == nil || candidate.key != key {
 		return nil, false
@@ -429,10 +507,10 @@ func NewCustomMap(lessThan func(l, r interface{}) bool) *SkipList {
 	}
 }
 
-// Ordered is an interface which can be linearly ordered by the
-// LessThan method.
+// Ordered is an interface which can be linearly ordered by the LessThan
+// method, whereby this instance is deemed to be less than other.
 type Ordered interface {
-	LessThan(Ordered) bool
+	LessThan(other Ordered) bool
 }
 
 // New returns a new SkipList.
@@ -466,8 +544,7 @@ func NewStringMap() *SkipList {
 // SkipList for storage, and it gives you similar performance
 // guarantees.
 //
-// To iterate over a set (where s is a
-// *Set):
+// To iterate over a set (where s is a *Set):
 //
 //	for i := s.Iterator(); i.Next(); {
 //		// do something with i.Key().
