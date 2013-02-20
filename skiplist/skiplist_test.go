@@ -615,26 +615,86 @@ func TestIteratorPrevHoles(t *testing.T) {
 func TestIteratorSeek(t *testing.T) {
 	m := NewIntMap()
 
+	i := m.Seek(0)
+
+	if i != nil {
+		t.Errorf("Expected nil iterator, but got %v.", i)
+	}
+
+	i = m.SeekToFirst()
+
+	if i != nil {
+		t.Errorf("Expected nil iterator, but got %v.", i)
+	}
+
+	i = m.SeekToLast()
+
+	if i != nil {
+		t.Errorf("Expected nil iterator, but got %v.", i)
+	}
+
 	m.Set(0, 0)
+
+	i = m.SeekToFirst()
+
+	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
+	}
+
+	i = m.SeekToLast()
+
+	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
+	}
+
 	m.Set(1, 1)
+
+	i = m.SeekToFirst()
+
+	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
+	}
+
+	i = m.SeekToLast()
+
+	if i.Key().(int) != 1 && i.Value().(int) != 1 {
+		t.Errorf("Expected iterator to reach key 1 and value 1, got %v and %v.", i.Key(), i.Value())
+	}
+
 	m.Set(2, 2)
 
-	i := m.Seek(0)
+	i = m.SeekToFirst()
+
+	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
+	}
+
+	i = m.SeekToLast()
+
+	if i.Key().(int) != 2 && i.Value().(int) != 2 {
+		t.Errorf("Expected iterator to reach key 2 and value 2, got %v and %v.", i.Key(), i.Value())
+	}
+
+	i = m.Seek(0)
+
 	if i.Key().(int) != 0 && i.Value().(int) != 0 {
 		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
 	}
 
 	i = m.Seek(2)
+
 	if i.Key().(int) != 2 && i.Value().(int) != 2 {
 		t.Errorf("Expected iterator to reach key 2 and value 2, got %v and %v.", i.Key(), i.Value())
 	}
 
 	i = m.Seek(1)
+
 	if i.Key().(int) != 1 && i.Value().(int) != 1 {
 		t.Errorf("Expected iterator to reach key 1 and value 1, got %v and %v.", i.Key(), i.Value())
 	}
 
 	i = m.Seek(3)
+
 	if i != nil {
 		t.Errorf("Expected to receive nil iterator, got %v.", i)
 	}
@@ -642,13 +702,29 @@ func TestIteratorSeek(t *testing.T) {
 	m.Set(4, 4)
 
 	i = m.Seek(4)
+
 	if i.Key().(int) != 4 && i.Value().(int) != 4 {
 		t.Errorf("Expected iterator to reach key 4 and value 4, got %v and %v.", i.Key(), i.Value())
 	}
 
 	i = m.Seek(3)
+
 	if i.Key().(int) != 4 && i.Value().(int) != 4 {
 		t.Errorf("Expected iterator to reach key 4 and value 4, got %v and %v.", i.Key(), i.Value())
+	}
+
+	m.Delete(4)
+
+	i = m.SeekToFirst()
+
+	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
+	}
+
+	i = m.SeekToLast()
+
+	if i.Key().(int) != 2 && i.Value().(int) != 2 {
+		t.Errorf("Expected iterator to reach key 2 and value 2, got %v and %v.", i.Key(), i.Value())
 	}
 }
 
