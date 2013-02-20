@@ -108,6 +108,16 @@ func main() {
 	fmt.Printf("%d: %s\n", iterator.Key(), iterator.Value())
 	// prints:
 	//  3: three
+
+  iterator = s.SeekToFirst()
+  fmt.Printf("%d: %s\n", iterator.Key(), iterator.Value())
+  // prints:
+  //  0: zero
+
+  iterator = s.SeekToLast()
+  fmt.Printf("%d: %s\n", iterator.Key(), iterator.Value())
+  // prints:
+  //  10: ten
 }
 ```
 
