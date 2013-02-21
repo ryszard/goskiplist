@@ -118,6 +118,19 @@ func main() {
   fmt.Printf("%d: %s\n", iterator.Key(), iterator.Value())
   // prints:
   //  10: ten
+
+  // SkipList can also reduce subsequent forward seeking costs by reusing the
+  // same iterator:
+
+  iterator = s.Seek(3)
+	fmt.Printf("%d: %s\n", iterator.Key(), iterator.Value())
+	// prints:
+	//  3: three
+
+  iterator.Seek(5)
+	fmt.Printf("%d: %s\n", iterator.Key(), iterator.Value())
+	// prints:
+	//  5: five
 }
 ```
 
