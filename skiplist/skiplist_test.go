@@ -17,6 +17,7 @@ package skiplist
 import (
 	"fmt"
 	"math/rand"
+	"sort"
 	"testing"
 )
 
@@ -231,6 +232,7 @@ func TestIteration(t *testing.T) {
 	var lastKey int
 
 	i := s.Iterator()
+	defer i.Close()
 
 	for i.Next() {
 		seen++
@@ -269,7 +271,10 @@ func TestRangeIteration(t *testing.T) {
 
 	max, min := 0, 100000
 	var lastKey, seen int
+
 	i := s.Range(5, 10)
+	defer i.Close()
+
 	for i.Next() {
 		seen++
 		lastKey = i.Key().(int)
@@ -294,6 +299,30 @@ func TestRangeIteration(t *testing.T) {
 	if max != 9 {
 		t.Errorf("The largest element should have been 9, not %v", max)
 	}
+
+	if i.Seek(4) {
+		t.Error("Allowed to seek to invalid range.")
+	}
+
+	if !i.Seek(5) {
+		t.Error("Could not seek to an allowed range.")
+	}
+	if i.Key().(int) != 5 || i.Value().(int) != 5 {
+		t.Errorf("Expected 5 for key and 5 for value, got %d and %d", i.Key(), i.Value())
+	}
+
+	if !i.Seek(7) {
+		t.Error("Could not seek to an allowed range.")
+	}
+	if i.Key().(int) != 7 || i.Value().(int) != 7 {
+		t.Errorf("Expected 7 for key and 7 for value, got %d and %d", i.Key(), i.Value())
+	}
+
+	if i.Seek(10) {
+		t.Error("Allowed to seek to invalid range.")
+	}
+
+	i.Seek(9)
 
 	seen = 0
 	min = 100000
@@ -378,6 +407,7 @@ func TestSanity(t *testing.T) {
 	var last int = 0
 
 	i := s.Iterator()
+	defer i.Close()
 
 	for i.Next() {
 		if last != 0 && i.Key().(int) <= last {
@@ -456,7 +486,10 @@ func TestSetMaxLevelInFlight(t *testing.T) {
 		s.Set(insert, insert)
 	}
 
-	for i := s.Iterator(); i.Next(); {
+	i := s.Iterator()
+	defer i.Close()
+
+	for i.Next() {
 		if v, _ := s.Get(i.Key()); v != i.Key() {
 			t.Errorf("Bad values in the skip list (%v). Inserted before the call to s.SetMax(): %t.", v, i.Key().(int)%2 == 0)
 		}
@@ -476,7 +509,10 @@ func TestDeletingHighestLevelNodeDoesntBreakSkiplist(t *testing.T) {
 	s.Delete(highestLevelNode.key)
 
 	seen := 0
-	for i := s.Iterator(); i.Next(); {
+	i := s.Iterator()
+	defer i.Close()
+
+	for i.Next() {
 		seen++
 	}
 	if seen == 0 {
@@ -511,7 +547,10 @@ func TestNewSet(t *testing.T) {
 	}
 
 	seen := 0
-	for i := set.Iterator(); i.Next(); {
+	i := set.Iterator()
+	defer i.Close()
+
+	for i.Next() {
 		seen++
 	}
 
@@ -568,6 +607,7 @@ func TestIteratorPrevHoles(t *testing.T) {
 	m := NewIntMap()
 
 	i := m.Iterator()
+	defer i.Close()
 
 	m.Set(0, 0)
 	m.Set(1, 1)
@@ -585,7 +625,7 @@ func TestIteratorPrevHoles(t *testing.T) {
 		t.Errorf("Expected iterator to move successfully to the next.")
 	}
 
-	if i.Key().(int) != 2 && i.Value().(int) != 2 {
+	if i.Key().(int) != 2 || i.Value().(int) != 2 {
 		t.Errorf("Expected iterator to reach key 2 and value 2, got %v and %v.", i.Key(), i.Value())
 	}
 
@@ -593,7 +633,7 @@ func TestIteratorPrevHoles(t *testing.T) {
 		t.Errorf("Expected iterator to move successfully to the previous.")
 	}
 
-	if i.Key().(int) != 1 && i.Value().(int) != 1 {
+	if i.Key().(int) != 1 || i.Value().(int) != 1 {
 		t.Errorf("Expected iterator to reach key 1 and value 1, got %v and %v.", i.Key(), i.Value())
 	}
 
@@ -607,7 +647,7 @@ func TestIteratorPrevHoles(t *testing.T) {
 		t.Errorf("Expected iterator to move successfully to the previous.")
 	}
 
-	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+	if i.Key().(int) != 0 || i.Value().(int) != 0 {
 		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
 	}
 }
@@ -636,60 +676,69 @@ func TestIteratorSeek(t *testing.T) {
 	m.Set(0, 0)
 
 	i = m.SeekToFirst()
+	defer i.Close()
 
-	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+	if i.Key().(int) != 0 || i.Value().(int) != 0 {
 		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
 	}
 
 	i = m.SeekToLast()
+	defer i.Close()
 
-	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+	if i.Key().(int) != 0 || i.Value().(int) != 0 {
 		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
 	}
 
 	m.Set(1, 1)
 
 	i = m.SeekToFirst()
+	defer i.Close()
 
-	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+	if i.Key().(int) != 0 || i.Value().(int) != 0 {
 		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
 	}
 
 	i = m.SeekToLast()
+	defer i.Close()
 
-	if i.Key().(int) != 1 && i.Value().(int) != 1 {
+	if i.Key().(int) != 1 || i.Value().(int) != 1 {
 		t.Errorf("Expected iterator to reach key 1 and value 1, got %v and %v.", i.Key(), i.Value())
 	}
 
 	m.Set(2, 2)
 
 	i = m.SeekToFirst()
+	defer i.Close()
 
-	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+	if i.Key().(int) != 0 || i.Value().(int) != 0 {
 		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
 	}
 
 	i = m.SeekToLast()
+	defer i.Close()
 
-	if i.Key().(int) != 2 && i.Value().(int) != 2 {
+	if i.Key().(int) != 2 || i.Value().(int) != 2 {
 		t.Errorf("Expected iterator to reach key 2 and value 2, got %v and %v.", i.Key(), i.Value())
 	}
 
 	i = m.Seek(0)
+	defer i.Close()
 
-	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+	if i.Key().(int) != 0 || i.Value().(int) != 0 {
 		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
 	}
 
 	i = m.Seek(2)
+	defer i.Close()
 
-	if i.Key().(int) != 2 && i.Value().(int) != 2 {
+	if i.Key().(int) != 2 || i.Value().(int) != 2 {
 		t.Errorf("Expected iterator to reach key 2 and value 2, got %v and %v.", i.Key(), i.Value())
 	}
 
 	i = m.Seek(1)
+	defer i.Close()
 
-	if i.Key().(int) != 1 && i.Value().(int) != 1 {
+	if i.Key().(int) != 1 || i.Value().(int) != 1 {
 		t.Errorf("Expected iterator to reach key 1 and value 1, got %v and %v.", i.Key(), i.Value())
 	}
 
@@ -702,29 +751,68 @@ func TestIteratorSeek(t *testing.T) {
 	m.Set(4, 4)
 
 	i = m.Seek(4)
+	defer i.Close()
 
-	if i.Key().(int) != 4 && i.Value().(int) != 4 {
+	if i.Key().(int) != 4 || i.Value().(int) != 4 {
 		t.Errorf("Expected iterator to reach key 4 and value 4, got %v and %v.", i.Key(), i.Value())
 	}
 
 	i = m.Seek(3)
+	defer i.Close()
 
-	if i.Key().(int) != 4 && i.Value().(int) != 4 {
+	if i.Key().(int) != 4 || i.Value().(int) != 4 {
 		t.Errorf("Expected iterator to reach key 4 and value 4, got %v and %v.", i.Key(), i.Value())
 	}
 
 	m.Delete(4)
 
 	i = m.SeekToFirst()
+	defer i.Close()
 
-	if i.Key().(int) != 0 && i.Value().(int) != 0 {
+	if i.Key().(int) != 0 || i.Value().(int) != 0 {
 		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
 	}
 
 	i = m.SeekToLast()
+	defer i.Close()
 
-	if i.Key().(int) != 2 && i.Value().(int) != 2 {
+	if i.Key().(int) != 2 || i.Value().(int) != 2 {
 		t.Errorf("Expected iterator to reach key 2 and value 2, got %v and %v.", i.Key(), i.Value())
+	}
+
+	if !i.Seek(2) {
+		t.Error("Expected iterator to seek to key.")
+	}
+
+	if i.Key().(int) != 2 || i.Value().(int) != 2 {
+		t.Errorf("Expected iterator to reach key 2 and value 2, got %v and %v.", i.Key(), i.Value())
+	}
+
+	if !i.Seek(1) {
+		t.Error("Expected iterator to seek to key.")
+	}
+
+	if i.Key().(int) != 1 || i.Value().(int) != 1 {
+		t.Errorf("Expected iterator to reach key 1 and value 1, got %v and %v.", i.Key(), i.Value())
+	}
+
+	if !i.Seek(0) {
+		t.Error("Expected iterator to seek to key.")
+	}
+
+	if i.Key().(int) != 0 || i.Value().(int) != 0 {
+		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
+	}
+
+	i = m.SeekToFirst()
+	defer i.Close()
+
+	if !i.Seek(0) {
+		t.Error("Expected iterator to seek to key.")
+	}
+
+	if i.Key().(int) != 0 || i.Value().(int) != 0 {
+		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
 	}
 }
 
@@ -750,4 +838,87 @@ func BenchmarkSet256(b *testing.B) {
 
 func BenchmarkSet65536(b *testing.B) {
 	SetBenchmark(b, 65536)
+}
+
+func BenchmarkRandomSeek(b *testing.B) {
+	b.StopTimer()
+	values := []int{}
+	s := NewIntMap()
+	for i := 0; i < b.N; i++ {
+		r := rand.Int()
+		values = append(values, r)
+		s.Set(r, r)
+	}
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		iterator := s.Seek(values[i])
+		if iterator == nil {
+			b.Errorf("got incorrect value for index %d", i)
+		}
+	}
+}
+
+const (
+	lookAhead = 10
+)
+
+// This test is used for the baseline comparison of Iterator.Seek when
+// performing forward sequential seek operations.
+func BenchmarkForwardSeek(b *testing.B) {
+	b.StopTimer()
+
+	values := []int{}
+	s := NewIntMap()
+	valueCount := b.N
+	for i := 0; i < valueCount; i++ {
+		r := rand.Int()
+		values = append(values, r)
+		s.Set(r, r)
+	}
+	sort.Ints(values)
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		key := values[i]
+		iterator := s.Seek(key)
+		if i < valueCount-lookAhead {
+			nextKey := values[i+lookAhead]
+
+			iterator = s.Seek(nextKey)
+			if iterator.Key().(int) != nextKey || iterator.Value().(int) != nextKey {
+				b.Errorf("%d. expected %d key and %d value, got %d key and %d value", i, nextKey, nextKey, iterator.Key(), iterator.Value())
+			}
+		}
+	}
+}
+
+// This test demonstrates the amortized cost of a forward sequential seek.
+func BenchmarkForwardSeekReusedIterator(b *testing.B) {
+	b.StopTimer()
+
+	values := []int{}
+	s := NewIntMap()
+	valueCount := b.N
+	for i := 0; i < valueCount; i++ {
+		r := rand.Int()
+		values = append(values, r)
+		s.Set(r, r)
+
+	}
+	sort.Ints(values)
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		key := values[i]
+		iterator := s.Seek(key)
+		if i < valueCount-lookAhead {
+			nextKey := values[i+lookAhead]
+
+			if !iterator.Seek(nextKey) {
+				b.Errorf("%d. expected iterator to seek to %d key; failed.", i, nextKey)
+			} else if iterator.Key().(int) != nextKey || iterator.Value().(int) != nextKey {
+				b.Errorf("%d. expected %d key and %d value, got %d key and %d value", i, nextKey, nextKey, iterator.Key(), iterator.Value())
+			}
+		}
+	}
 }
