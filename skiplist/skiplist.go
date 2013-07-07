@@ -582,7 +582,7 @@ func NewIntSet() *Set {
 	})
 }
 
-// NewStringSet returns a new Set that acceots string elements.
+// NewStringSet returns a new Set that accepts string elements.
 func NewStringSet() *Set {
 	return NewCustomSet(func(l, r interface{}) bool {
 		return l.(string) < r.(string)
