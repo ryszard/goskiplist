@@ -380,7 +380,7 @@ func (s *SkipList) GetGreaterOrEqual(min interface{}) (actualKey, value interfac
 	candidate := s.getPath(s.header, nil, min)
 
 	if candidate != nil {
-		return candidate.value, candidate.key, true
+		return candidate.key, candidate.value, true
 	}
 	return nil, nil, false
 }
