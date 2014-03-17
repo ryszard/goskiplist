@@ -15,6 +15,8 @@ Skip lists were first described in
 lists: a probabilistic alternative to balanced trees". Communications
 of the ACM 33 (6): 668–676
 
+[![Build Status](https://travis-ci.org/ryszard/goskiplist.png?branch=master)](https://travis-ci.org/ryszard/goskiplist)
+
 Installing
 ==========
 
