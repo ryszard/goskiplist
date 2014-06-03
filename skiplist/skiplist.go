@@ -507,8 +507,10 @@ func NewCustomMap(lessThan func(l, r interface{}) bool) *SkipList {
 	}
 }
 
-// Ordered is an interface which can be linearly ordered by the LessThan
-// method, whereby this instance is deemed to be less than other.
+// Ordered is an interface which can be linearly ordered by the
+// LessThan method, whereby this instance is deemed to be less than
+// other. Additionally, Ordered instances should behave properly when
+// compared using == and !=.
 type Ordered interface {
 	LessThan(other Ordered) bool
 }
