@@ -139,7 +139,7 @@ func main() {
 Full documentation
 ==================
 
-Read it [online](http://go.pkgdoc.org/github.com/ryszard/goskiplist/skiplist) or run
+Read it [online](http://godoc.org/github.com/ryszard/goskiplist/skiplist) or run
 
     $ go doc github.com/ryszard/goskiplist/skiplist
 
