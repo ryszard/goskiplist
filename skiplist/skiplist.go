@@ -31,18 +31,23 @@ const DefaultMaxLevel = 32
 
 // A node is a container for key-value pairs that are stored in a skip
 // list.
+type level struct {
+	forward *node
+	span    uint32
+}
+
 type node struct {
-	forward    []*node
+	levels     []level
 	backward   *node
 	key, value interface{}
 }
 
 // next returns the next node in the skip list containing n.
 func (n *node) next() *node {
-	if len(n.forward) == 0 {
+	if len(n.levels) == 0 {
 		return nil
 	}
-	return n.forward[0]
+	return n.levels[0].forward
 }
 
 // previous returns the previous node in the skip list containing n.
@@ -94,6 +99,14 @@ type SkipList struct {
 // Len returns the length of s.
 func (s *SkipList) Len() int {
 	return s.length
+}
+
+func (s *SkipList) Clear() {
+	s.header = &node{
+		levels: []level{level{}},
+	}
+	s.footer = nil
+	s.length = 0
 }
 
 // Iterator is an interface that you can use to iterate through the
@@ -187,7 +200,7 @@ func (i *iter) Seek(key interface{}) (ok bool) {
 		current = current.backward
 	}
 
-	current = list.getPath(current, nil, key)
+	current = list.getLowerBound(current, key)
 
 	if current == nil {
 		return
@@ -274,7 +287,7 @@ func (s *SkipList) Iterator() Iterator {
 // Seek returns a bidirectional iterator starting with the first element whose
 // key is greater or equal to key; otherwise, a nil iterator is returned.
 func (s *SkipList) Seek(key interface{}) Iterator {
-	current := s.getPath(s.header, nil, key)
+	current := s.getLowerBound(s.header, key)
 	if current == nil {
 		return nil
 	}
@@ -324,11 +337,11 @@ func (s *SkipList) SeekToLast() Iterator {
 // elements of the skip list that are greater or equal than from, but
 // less than to.
 func (s *SkipList) Range(from, to interface{}) Iterator {
-	start := s.getPath(s.header, nil, from)
+	start := s.getLowerBound(s.header, from)
 	return &rangeIterator{
 		iter: iter{
 			current: &node{
-				forward:  []*node{start},
+				levels:   []level{level{start, 0}},
 				backward: start,
 			},
 			list: s,
@@ -339,7 +352,7 @@ func (s *SkipList) Range(from, to interface{}) Iterator {
 }
 
 func (s *SkipList) level() int {
-	return len(s.header.forward) - 1
+	return len(s.header.levels) - 1
 }
 
 func maxInt(x, y int) int {
@@ -364,7 +377,7 @@ func (s SkipList) randomLevel() (n int) {
 // not present in s). The second return value is true when the key is
 // present.
 func (s *SkipList) Get(key interface{}) (value interface{}, ok bool) {
-	candidate := s.getPath(s.header, nil, key)
+	candidate := s.getLowerBound(s.header, key)
 
 	if candidate == nil || candidate.key != key {
 		return nil, false
@@ -377,7 +390,7 @@ func (s *SkipList) Get(key interface{}) (value interface{}, ok bool) {
 // to min. It returns its value, its actual key, and whether such a
 // node is present in the skip list.
 func (s *SkipList) GetGreaterOrEqual(min interface{}) (actualKey, value interface{}, ok bool) {
-	candidate := s.getPath(s.header, nil, min)
+	candidate := s.getLowerBound(s.header, min)
 
 	if candidate != nil {
 		return candidate.key, candidate.value, true
@@ -385,21 +398,71 @@ func (s *SkipList) GetGreaterOrEqual(min interface{}) (actualKey, value interfac
 	return nil, nil, false
 }
 
-// getPath populates update with nodes that constitute the path to the
-// node that may contain key. The candidate node will be returned. If
-// update is nil, it will be left alone (the candidate node will still
-// be returned). If update is not nil, but it doesn't have enough
-// slots for all the nodes in the path, getPath will panic.
-func (s *SkipList) getPath(current *node, update []*node, key interface{}) *node {
-	depth := len(current.forward) - 1
+func (s *SkipList) Rank(key interface{}) uint32 {
+	current := s.header
+	var rank uint32
+	for i := s.level(); i >= 0; i-- {
+		for current.levels[i].forward != nil && s.lessThan(current.levels[i].forward.key, key) {
+			rank += current.levels[i].span
+			current = current.levels[i].forward
+		}
+		if current.levels[i].forward != nil && current.levels[i].forward.key == key {
+			return rank + current.levels[i].span
+		}
+	}
+	return 0
+}
+
+func (s *SkipList) GetElemByRank(rank uint32) Iterator {
+	current := s.header
+	var traversed uint32
+	for i := s.level(); i >= 0; i-- {
+		for current.levels[i].forward != nil && (traversed+current.levels[i].span < rank) {
+			traversed += current.levels[i].span
+			current = current.levels[i].forward
+		}
+		if current.levels[i].forward != nil && traversed+current.levels[i].span == rank {
+			return &iter{
+				current: current.levels[i].forward,
+				key:     current.levels[i].forward.key,
+				list:    s,
+				value:   current.levels[i].forward.value,
+			}
+		}
+	}
+	return nil
+}
+
+func (s *SkipList) getLowerBound(current *node, key interface{}) *node {
+	depth := len(current.levels) - 1
 
 	for i := depth; i >= 0; i-- {
-		for current.forward[i] != nil && s.lessThan(current.forward[i].key, key) {
-			current = current.forward[i]
+		for current.levels[i].forward != nil && s.lessThan(current.levels[i].forward.key, key) {
+			current = current.levels[i].forward
 		}
-		if update != nil {
-			update[i] = current
+		if current.levels[i].forward != nil && current.levels[i].forward.key == key {
+			return current.levels[i].forward
 		}
+	}
+	return current.next()
+}
+
+func (s *SkipList) searchForInsert(key interface{}, update []*node, rank []uint32) *node {
+	current := s.header
+	for i := s.level(); i >= 0; i-- {
+		if i == s.level() {
+			rank[i] = 0
+		} else {
+			rank[i] = rank[i+1]
+		}
+		for current.levels[i].forward != nil && s.lessThan(current.levels[i].forward.key, key) {
+			rank[i] += current.levels[i].span
+			current = current.levels[i].forward
+		}
+		if current.levels[i].forward != nil && current.levels[i].forward.key == key {
+			return current.levels[i].forward
+		}
+		update[i] = current
 	}
 	return current.next()
 }
@@ -411,7 +474,8 @@ func (s *SkipList) Set(key, value interface{}) {
 	}
 	// s.level starts from 0, so we need to allocate one.
 	update := make([]*node, s.level()+1, s.effectiveMaxLevel()+1)
-	candidate := s.getPath(s.header, update, key)
+	rank := make([]uint32, s.level()+1, s.effectiveMaxLevel()+1)
+	candidate := s.searchForInsert(key, update, rank)
 
 	if candidate != nil && candidate.key == key {
 		candidate.value = value
@@ -425,15 +489,17 @@ func (s *SkipList) Set(key, value interface{}) {
 		// update. Header should be there. Also add higher
 		// level links to the header.
 		for i := currentLevel + 1; i <= newLevel; i++ {
+			s.header.levels = append(s.header.levels, level{})
+			rank = append(rank, 0)
 			update = append(update, s.header)
-			s.header.forward = append(s.header.forward, nil)
+			update[i].levels[i].span = uint32(s.length)
 		}
 	}
 
 	newNode := &node{
-		forward: make([]*node, newLevel+1, s.effectiveMaxLevel()+1),
-		key:     key,
-		value:   value,
+		levels: make([]level, newLevel+1, s.effectiveMaxLevel()+1),
+		key:    key,
+		value:  value,
 	}
 
 	if previous := update[0]; previous.key != nil {
@@ -441,21 +507,91 @@ func (s *SkipList) Set(key, value interface{}) {
 	}
 
 	for i := 0; i <= newLevel; i++ {
-		newNode.forward[i] = update[i].forward[i]
-		update[i].forward[i] = newNode
+		newNode.levels[i].forward = update[i].levels[i].forward
+		update[i].levels[i].forward = newNode
+
+		newNode.levels[i].span = update[i].levels[i].span - (rank[0] - rank[i])
+		update[i].levels[i].span = (rank[0] - rank[i]) + 1
+	}
+
+	for i := newLevel + 1; i <= s.level(); i++ {
+		update[i].levels[i].span++
 	}
 
 	s.length++
 
-	if newNode.forward[0] != nil {
-		if newNode.forward[0].backward != newNode {
-			newNode.forward[0].backward = newNode
+	if newNode.levels[0].forward != nil {
+		if newNode.levels[0].forward.backward != newNode {
+			newNode.levels[0].forward.backward = newNode
 		}
 	}
 
 	if s.footer == nil || s.lessThan(s.footer.key, key) {
 		s.footer = newNode
 	}
+}
+
+func (s *SkipList) FillBySortedSlice(elements [][2]interface{}) bool {
+	if s.Len() != 0 {
+		panic("goskiplist: can only fill empty skiplist")
+	}
+
+	update := make([]*node, s.level()+1, s.effectiveMaxLevel()+1)
+	update[0] = s.header
+
+	for pos, elem := range elements {
+		newLevel := s.randomLevel()
+
+		if currentLevel := s.level(); newLevel > currentLevel {
+			// there are no pointers for the higher levels in
+			// update. Header should be there. Also add higher
+			// level links to the header.
+			for i := currentLevel + 1; i <= newLevel; i++ {
+				s.header.levels = append(s.header.levels, level{})
+				update = append(update, s.header)
+				update[i].levels[i].span = uint32(pos)
+			}
+		}
+
+		newNode := &node{
+			levels: make([]level, newLevel+1, s.effectiveMaxLevel()+1),
+			key:    elem[0],
+			value:  elem[1],
+		}
+
+		if update[0] != s.header {
+			newNode.backward = update[0]
+			if !s.lessThan(update[0].key, newNode.key) {
+				panic("goskiplist: fill by unsorted slice")
+			}
+		}
+
+		for i := 0; i <= newLevel; i++ {
+			update[i].levels[i].forward = newNode
+			update[i].levels[i].span++
+			update[i] = newNode
+		}
+
+		for i := newLevel + 1; i <= s.level(); i++ {
+			update[i].levels[i].span++
+		}
+
+		s.footer = newNode
+		s.length++
+	}
+	return true
+}
+
+func (s *SkipList) searchForDelete(current *node, key interface{}, update []*node) *node {
+	depth := len(current.levels) - 1
+
+	for i := depth; i >= 0; i-- {
+		for current.levels[i].forward != nil && s.lessThan(current.levels[i].forward.key, key) {
+			current = current.levels[i].forward
+		}
+		update[i] = current
+	}
+	return current.next()
 }
 
 // Delete removes the node with the given key.
@@ -466,7 +602,7 @@ func (s *SkipList) Delete(key interface{}) (value interface{}, ok bool) {
 		panic("goskiplist: nil keys are not supported")
 	}
 	update := make([]*node, s.level()+1, s.effectiveMaxLevel())
-	candidate := s.getPath(s.header, update, key)
+	candidate := s.searchForDelete(s.header, key, update)
 
 	if candidate == nil || candidate.key != key {
 		return nil, false
@@ -482,12 +618,17 @@ func (s *SkipList) Delete(key interface{}) (value interface{}, ok bool) {
 		next.backward = previous
 	}
 
-	for i := 0; i <= s.level() && update[i].forward[i] == candidate; i++ {
-		update[i].forward[i] = candidate.forward[i]
+	for i := 0; i <= s.level(); i++ {
+		if update[i].levels[i].forward == candidate {
+			update[i].levels[i].span += candidate.levels[i].span - 1
+			update[i].levels[i].forward = candidate.levels[i].forward
+		} else {
+			update[i].levels[i].span -= 1
+		}
 	}
 
-	for s.level() > 0 && s.header.forward[s.level()] == nil {
-		s.header.forward = s.header.forward[:s.level()]
+	for s.level() > 0 && s.header.levels[s.level()].forward == nil {
+		s.header.levels = s.header.levels[:s.level()]
 	}
 	s.length--
 
@@ -501,7 +642,7 @@ func NewCustomMap(lessThan func(l, r interface{}) bool) *SkipList {
 	return &SkipList{
 		lessThan: lessThan,
 		header: &node{
-			forward: []*node{nil},
+			levels: []level{level{}},
 		},
 		MaxLevel: DefaultMaxLevel,
 	}
@@ -571,7 +712,7 @@ func NewCustomSet(lessThan func(l, r interface{}) bool) *Set {
 	return &Set{skiplist: SkipList{
 		lessThan: lessThan,
 		header: &node{
-			forward: []*node{nil},
+			levels: []level{level{}},
 		},
 		MaxLevel: DefaultMaxLevel,
 	}}

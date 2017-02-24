@@ -24,19 +24,19 @@ import (
 func (s *SkipList) printRepr() {
 
 	fmt.Printf("header:\n")
-	for i, link := range s.header.forward {
-		if link != nil {
-			fmt.Printf("\t%d: -> %v\n", i, link.key)
+	for i, level := range s.header.levels {
+		if level.forward != nil {
+			fmt.Printf("\t%d: -> %v\n", i, level.forward.key)
 		} else {
 			fmt.Printf("\t%d: -> END\n", i)
 		}
 	}
 
 	for node := s.header.next(); node != nil; node = node.next() {
-		fmt.Printf("%v: %v (level %d)\n", node.key, node.value, len(node.forward))
-		for i, link := range node.forward {
-			if link != nil {
-				fmt.Printf("\t%d: -> %v\n", i, link.key)
+		fmt.Printf("%v: %v (level %d)\n", node.key, node.value, len(node.levels))
+		for i, level := range node.levels {
+			if level.forward != nil {
+				fmt.Printf("\t%d: -> %v\n", i, level.forward.key)
 			} else {
 				fmt.Printf("\t%d: -> END\n", i)
 			}
@@ -504,7 +504,7 @@ func TestDeletingHighestLevelNodeDoesntBreakSkiplist(t *testing.T) {
 		s.Set(i, i)
 	}
 
-	highestLevelNode := s.header.forward[len(s.header.forward)-1]
+	highestLevelNode := s.header.levels[len(s.header.levels)-1].forward
 
 	s.Delete(highestLevelNode.key)
 
@@ -813,6 +813,27 @@ func TestIteratorSeek(t *testing.T) {
 
 	if i.Key().(int) != 0 || i.Value().(int) != 0 {
 		t.Errorf("Expected iterator to reach key 0 and value 0, got %v and %v.", i.Key(), i.Value())
+	}
+}
+
+func TestRank(t *testing.T) {
+	sl := NewCustomMap(func(l, r interface{}) bool {
+		return l.(int) < r.(int)
+	})
+	for i := 0; i < 100; i++ {
+		sl.Set(i*10, i)
+	}
+	for i := 0; i < 100; i++ {
+		if sl.Rank(i*10) != uint32(i+1) {
+			t.Errorf("Rank return wrong value")
+		}
+	}
+	for i := 0; i < 100; i++ {
+		iter := sl.GetElemByRank(uint32(i + 1))
+		if iter.Value() != i {
+			t.Errorf("GetElemByRank return wrong value")
+			sl.printRepr()
+		}
 	}
 }
 
