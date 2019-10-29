@@ -366,7 +366,7 @@ func (s SkipList) randomLevel() (n int) {
 func (s *SkipList) Get(key interface{}) (value interface{}, ok bool) {
 	candidate := s.getPath(s.header, nil, key)
 
-	if candidate == nil || candidate.key != key {
+	if candidate == nil || !s.equals(candidate.key, key) {
 		return nil, false
 	}
 
@@ -413,7 +413,7 @@ func (s *SkipList) Set(key, value interface{}) {
 	update := make([]*node, s.level()+1, s.effectiveMaxLevel()+1)
 	candidate := s.getPath(s.header, update, key)
 
-	if candidate != nil && candidate.key == key {
+	if candidate != nil && s.equals(candidate.key, key) {
 		candidate.value = value
 		return
 	}
@@ -468,7 +468,7 @@ func (s *SkipList) Delete(key interface{}) (value interface{}, ok bool) {
 	update := make([]*node, s.level()+1, s.effectiveMaxLevel())
 	candidate := s.getPath(s.header, update, key)
 
-	if candidate == nil || candidate.key != key {
+	if candidate == nil || !s.equals(candidate.key, key) {
 		return nil, false
 	}
 
@@ -492,6 +492,10 @@ func (s *SkipList) Delete(key interface{}) (value interface{}, ok bool) {
 	s.length--
 
 	return candidate.value, true
+}
+
+func (s *SkipList) equals(l, r interface{}) bool {
+	return (!s.lessThan(l, r)) && !s.lessThan(r, l)
 }
 
 // NewCustomMap returns a new SkipList that will use lessThan as the
